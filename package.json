@@ -1,0 +1,15 @@
+{
+  "name": "projeto-saude",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Aplicativo de monitoramento de saúde",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm --workspace apps/api run dev",
+    "build:api": "npm --workspace apps/api run build",
+    "start:api": "npm --workspace apps/api run start",
+    "dev:mobile": "npm --workspace apps/mobile run start"
+  }
+}
