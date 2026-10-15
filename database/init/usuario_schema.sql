@@ -7,7 +7,7 @@ CREATE TABLE Usuario (
     CPF VARCHAR(11) UNIQUE NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     status_da_conta status_conta DEFAULT 'ATIVO',
-    data_cadastro DATA NOT NULL DEFAULT CURRENT_DATE,
+    data_cadastro DATE NOT NULL DEFAULT CURRENT_DATE,
     tipo_usuario tipo_usr DEFAULT 'CLIENTE',
     senha VARCHAR(255) NOT NULL
 );
