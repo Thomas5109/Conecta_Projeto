@@ -76,9 +76,10 @@ Depois de clonar o projeto:
 git clone https://github.com/Thomas5109/Conecta_Projeto.git
 cd projeto-saude
 ```
-Instale todas as dependências:
+Para instalar todas as dependências, rode o script em:
 ```
-npm ci
+cd scripts
+bash setup.sh
 ```
 
 ## Para subir um Banco de dados em Docker
