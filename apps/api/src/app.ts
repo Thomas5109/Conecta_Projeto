@@ -1,6 +1,6 @@
 import Fastify from 'fastify';
 import { pool } from './infrastructure/database/pool.js';
-import { clientRoutes } from './modules/clients/routes.js';
+import { clientRoutes } from './modules/clients/client.routes.js';
 
 export function buildApp() {
     const app = Fastify({
