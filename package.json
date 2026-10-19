@@ -6,10 +6,38 @@
   "workspaces": [
     "apps/*"
   ],
+  "engines": {
+    "node": ">=24 <25",
+    "npm": ">=11 <12"
+  },
   "scripts": {
+    "install:all": "npm ci",
     "dev:api": "npm --workspace apps/api run dev",
     "build:api": "npm --workspace apps/api run build",
     "start:api": "npm --workspace apps/api run start",
-    "dev:mobile": "npm --workspace apps/mobile run start"
+    "dev:mobile": "npm --workspace apps/mobile run start",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f postgres",
+    "setup": "npm ci"
+  },
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Thomas5109/Conecta_Projeto.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Thomas5109/Conecta_Projeto/issues"
+  },
+  "homepage": "https://github.com/Thomas5109/Conecta_Projeto#readme",
+  "devDependencies": {
+    "@types/react": "~19.2.4"
   }
 }
