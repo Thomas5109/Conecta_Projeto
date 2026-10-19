@@ -1,7 +1,7 @@
 {
   "name": "mobile",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "index.js",
   "dependencies": {
     "expo": "~57.0.30",
     "expo-status-bar": "~57.0.1",
@@ -9,7 +9,9 @@
     "react-native": "0.86.3"
   },
   "devDependencies": {
+    "@types/node": "^26.6.5",
     "@types/react": "~19.2.2",
+    "react-native-dotenv": "^5.0.0",
     "typescript": "~6.0.3"
   },
   "scripts": {
