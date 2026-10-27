@@ -1,5 +1,10 @@
-import LoginScreen from './src/features/auth/LoginScreen';
+import { NavigationContainer } from '@react-navigation/native';
+import AppNavigator from './src/routes/AppNavigator';
 
 export default function App() {
-    return <LoginScreen/>;
+    return (
+        <NavigationContainer>
+            <AppNavigator />
+        </NavigationContainer>
+    );
 }
