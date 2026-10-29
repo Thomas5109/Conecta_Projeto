@@ -21,7 +21,6 @@
     "db:logs": "docker compose logs -f postgres",
     "setup": "npm ci"
   },
-  "main": "index.js",
   "directories": {
     "doc": "docs"
   },
