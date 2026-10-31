@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import cors from '@fastify/cors';
 import { pool } from './infrastructure/database/pool.js';
 
 import { clientRoutes } from './modules/clients/client.routes.js';
@@ -8,6 +9,8 @@ export function buildApp() {
     const app = Fastify({
         logger: true,
     });
+
+    app.register(cors, { origin: true });
 
     app.get('/health', async () => {
         const result = await pool.query(

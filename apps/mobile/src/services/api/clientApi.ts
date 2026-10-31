@@ -1,4 +1,5 @@
-const API_URL = 'http://192.168.100.6:3000';
+import { API_URL } from './apiConfig';
+
 
 export interface CreateClientData {
     cpf: string;
