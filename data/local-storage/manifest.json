@@ -1,0 +1,31 @@
+{
+  "storage": "AsyncStorage",
+  "implementation": "apps/mobile/src/services/storage/localData.ts",
+  "records": [
+    {
+      "key": "@alerta_saude_historico",
+      "screen": "HistoricoScreen",
+      "fields": ["id", "tipo", "valor", "data"],
+      "legacyFields": ["tipo", "valor", "data"],
+      "dateFormat": "DD/MM/AAAA HH:MM"
+    },
+    {
+      "key": "@alertasaude_alarmes",
+      "screen": "AlarmeScreen",
+      "fields": ["id", "titulo", "horario"],
+      "timeFormat": "HH:MM (24 horas)"
+    },
+    {
+      "key": "@alertasaude_contatos",
+      "screen": "ContatosScreen",
+      "fields": ["id", "nome", "telefone", "parentesco"]
+    },
+    {
+      "key": "@alertasaude_usuario",
+      "screen": "LoginScreen, PerfilScreen",
+      "fields": ["idUsuario", "idCliente", "nome", "email", "tipoUsuario"],
+      "sensitiveFields": ["senha"],
+      "notes": "Nunca salvar senha ou hash no armazenamento local. A API ainda não emite token de sessão."
+    }
+  ]
+}
