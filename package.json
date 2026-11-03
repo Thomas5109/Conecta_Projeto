@@ -38,5 +38,9 @@
   "homepage": "https://github.com/Thomas5109/Conecta_Projeto#readme",
   "devDependencies": {
     "@types/react": "~19.3.0"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.9",
+    "libphonenumber-js": "^1.13.15"
   }
 }
