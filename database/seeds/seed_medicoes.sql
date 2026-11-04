@@ -1,0 +1,21 @@
+-- Inserindo o payload de Pressão Arterial
+INSERT INTO evento_medicao (id_cliente, id_tipo_medicao, data_hora_do_evento, fhir_observation_payload)
+VALUES (
+    1, -- ID do Cliente
+    2, -- ID do Tipo de Medição (ex: Pressão Arterial)
+    '2026-11-04 16:30:00-03',
+    '{
+      "resourceType": "Observation",
+      "status": "final",
+      "category": [{"coding": [{"system": "http://hl7.org", "code": "vital-signs", "display": "Vital Signs"}]}],
+      "code": {"coding": [{"system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure panel with all daily measurements"}]},
+      "subject": {"reference": "Patient/1"},
+      "effectiveDateTime": "2026-11-04T16:30:00-03:00",
+      "method": {"coding": [{"system": "http://snomed.info", "code": "466086009", "display": "Automatic inflation electronic sphygmomanometer, wrist"}], "text": "Aparelho de Pulso"},
+      "extension": [{"url": "http://seu-app.com/fhir/estado-emocional", "valueString": "Calmo"}, {"url": "http://seu-app.com/fhir/repouso-previo", "valueBoolean": true}],
+      "component": [
+        {"code": {"coding": [{"system": "http://loinc.org", "code": "8480-6", "display": "Systolic blood pressure"}]}, "valueQuantity": {"value": 125, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}},
+        {"code": {"coding": [{"system": "http://loinc.org", "code": "8462-4", "display": "Diastolic blood pressure"}]}, "valueQuantity": {"value": 85, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}}
+      ]
+    }'::JSONB
+);
