@@ -1,0 +1,26 @@
+[
+  {
+    "id": "hidratacao",
+    "icone": "💧",
+    "titulo": "Beba Muita Água",
+    "descricao": "Mantenha a hidratação diária para auxiliar os rins e a circulação."
+  },
+  {
+    "id": "sal",
+    "icone": "🧂",
+    "titulo": "Reduza o Sal",
+    "descricao": "Evite alimentos ultraprocessados para manter a pressão sob controle."
+  },
+  {
+    "id": "acucar",
+    "icone": "🍬",
+    "titulo": "Atenção ao Açúcar",
+    "descricao": "Prefira opções naturais e evite picos de glicemia."
+  },
+  {
+    "id": "caminhada",
+    "icone": "🚶‍♂️",
+    "titulo": "Caminhe Diariamente",
+    "descricao": "Pratique exercícios leves de 20 a 30 minutos todos os dias."
+  }
+]

@@ -1,29 +1,28 @@
-import fastify, { FastifyReply, FastifyRequest } from "fastify";
-import { createClient } from "./client.service.js";
-import type { CreateClientBody } from "./client.types.js";
+import type { FastifyReply, FastifyRequest } from 'fastify';
+import { createClient, ClientServiceError } from './client.service.js';
+import type { CreateClientBody } from './client.types.js';
 
-// Lê os dados da requisição, delega ao service e monta a resposta HTTP.
 export async function createClientController(
-    request: FastifyRequest <{ Body: CreateClientBody }>,
+    request: FastifyRequest<{ Body: CreateClientBody }>,
     reply: FastifyReply
 ) {
     try {
+        // Toda a validação e processamento agora acontece internamente no Service
         const cliente = await createClient(request.body);
 
+        // Resposta de sucesso (201 Created)
         return reply.code(201).send({
             mensagem: 'Cliente Cadastrado com sucesso!.',
             cliente,
         });
-
     } catch (error) {
-        const databaseError = error as { code?: string };
-
-        if (databaseError.code === '23505') {
-            return reply.code(409).send({
-                erro: 'CPF ou e-mail já cadastrado.',
-            });
+        // Captura e responde erros de domínio validados no Service
+        if (error instanceof ClientServiceError) {
+            return reply.code(error.statusCode).send({ erro: error.message });
         }
 
-        throw error;
+        // Erros não esperados/falhas de servidor
+        console.error('Erro interno na criação do cliente:', error);
+        return reply.code(500).send({ erro: 'Ocorreu um erro interno no servidor.' });
     }
 }

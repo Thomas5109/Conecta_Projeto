@@ -1,12 +1,19 @@
 import Fastify from 'fastify';
+import cors from '@fastify/cors';
 import { pool } from './infrastructure/database/pool.js';
 
 import { clientRoutes } from './modules/clients/client.routes.js';
-import { loginRoutes } from './modules/auth/login.routes.js';
+import { authRoutes } from './modules/auth/auth.routes.js';
 
 export function buildApp() {
     const app = Fastify({
         logger: true,
+    });
+
+    app.register(cors, { origin: true });
+
+    app.get('/', async (request, reply) => {
+        return { message: "A API está rodando!" };
     });
 
     app.get('/health', async () => {
@@ -22,7 +29,7 @@ export function buildApp() {
     });
 
     app.register(clientRoutes);
-    app.register(loginRoutes);
+    app.register(authRoutes);
 
     return app;
 }

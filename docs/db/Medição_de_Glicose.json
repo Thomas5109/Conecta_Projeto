@@ -1,0 +1,45 @@
+{
+  "resourceType": "Observation",
+  "status": "final",
+  "category": [
+    {
+      "coding": [
+        {
+          "system": "http://hl7.org",
+          "code": "laboratory",
+          "display": "Laboratory"
+        }
+      ]
+    }
+  ],
+  "code": {
+    "coding": [
+      {
+        "system": "http://loinc.org",
+        "code": "41653-7",
+        "display": "Glucose [Mass/volume] in Capillary blood by Glucometer"
+      }
+    ],
+    "text": "Glicose Capilar"
+  },
+  "subject": {
+    "reference": "Patient/id-do-paciente"
+  },
+  "effectiveDateTime": "2026-11-04T16:50:00-03:00",
+  "extension": [
+    {
+      "url": "http://seu-app.com/fhir/contexto-medicao",
+      "valueString": "Em Jejum"
+    },
+    {
+      "url": "http://seu-app.com/fhir/medicamento-tomado-antes",
+      "valueBoolean": false
+    }
+  ],
+  "valueQuantity": {
+    "value": 115,
+    "unit": "mg/dL",
+    "system": "http://unitsofmeasure.org",
+    "code": "mg/dL"
+  }
+}
