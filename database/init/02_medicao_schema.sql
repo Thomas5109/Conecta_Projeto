@@ -29,7 +29,8 @@ CREATE TABLE evento_medicao (
     -- Chaves Estrangeiras
     CONSTRAINT fk_cliente
         FOREIGN KEY (id_cliente)
-        REFERENCES usuario_cliente(id_cliente),
+        REFERENCES usuario_cliente(id_cliente)
+        ON DELETE CASCADE,
 
     CONSTRAINT fk_tipo_medicao
         FOREIGN KEY (id_tipo_medicao)

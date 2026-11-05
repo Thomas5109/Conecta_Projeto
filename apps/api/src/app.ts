@@ -12,6 +12,10 @@ export function buildApp() {
 
     app.register(cors, { origin: true });
 
+    app.get('/', async (request, reply) => {
+        return { message: "A API está rodando!" };
+    });
+
     app.get('/health', async () => {
         const result = await pool.query(
             'SELECT NOW() AS agora'

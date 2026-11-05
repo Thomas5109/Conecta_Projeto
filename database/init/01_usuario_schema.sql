@@ -23,4 +23,5 @@ CREATE TABLE usuario_cliente (
     CONSTRAINT fk_usuario
         FOREIGN KEY (id_usuario)
         REFERENCES usuario(id_usuario)
+        ON DELETE CASCADE
 );
