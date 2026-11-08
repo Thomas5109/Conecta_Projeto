@@ -1,4 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+    listarTodasMedicoes,
+    salvarMedicaoGlicose,
+    salvarMedicaoPressao,
+} from '../../database/helpers/measurementRepository';
 import type {
     ContatoLocal,
     LembreteLocal,
@@ -28,22 +33,31 @@ async function gravar<T>(chave: string, valor: T): Promise<void> {
 }
 
 export async function listarMedicoes(): Promise<MedicaoLocal[]> {
-    const registros = await ler<Array<Partial<MedicaoLocal>>>(
-        CHAVES_DADOS_LOCAIS.historico,
-        []
-    );
-
-    return registros.map((registro, indice) => ({
-        id: registro.id ?? `historico-${indice}`,
-        tipo: registro.tipo === 'Pressão' ? 'Pressão' : 'Glicose',
-        valor: registro.valor ?? '',
-        data: registro.data ?? '',
-    }));
+    return listarTodasMedicoes();
 }
 
 export async function adicionarMedicao(medicao: MedicaoLocal): Promise<void> {
-    const registros = await listarMedicoes();
-    await gravar(CHAVES_DADOS_LOCAIS.historico, [medicao, ...registros]);
+    // A tabela guarda cliente_id como string; o ID vem do usuário autenticado.
+    // Sem sessão, mantém a medição no dispositivo e pendente para sincronização.
+    const usuario = await lerUsuario();
+    const idCliente = usuario?.idCliente == null ? 'local' : String(usuario.idCliente);
+
+    if (medicao.tipo === 'Glicose') {
+        const valor = Number(medicao.valor.replace(',', '.').match(/-?\d+(?:\.\d+)?/)?.[0]);
+        if (!Number.isFinite(valor) || valor <= 0) {
+            throw new Error('Valor de glicose inválido.');
+        }
+        await salvarMedicaoGlicose(valor, idCliente);
+        return;
+    }
+
+    const valores = medicao.valor.match(/-?\d+(?:[.,]\d+)?/g) ?? [];
+    const sistolica = Number(valores[0]?.replace(',', '.'));
+    const diastolica = Number(valores[1]?.replace(',', '.'));
+    if (!Number.isFinite(sistolica) || !Number.isFinite(diastolica) || sistolica <= 0 || diastolica <= 0) {
+        throw new Error('Valores de pressão inválidos.');
+    }
+    await salvarMedicaoPressao(sistolica, diastolica, idCliente);
 }
 
 export async function listarLembretes(): Promise<LembreteLocal[]> {

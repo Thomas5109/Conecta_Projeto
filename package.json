@@ -40,6 +40,7 @@
     "@types/react": "~19.3.0"
   },
   "dependencies": {
+    "@nozbe/watermelondb": "^0.28.0",
     "dotenv": "^18.0.9",
     "libphonenumber-js": "^1.13.15"
   }
