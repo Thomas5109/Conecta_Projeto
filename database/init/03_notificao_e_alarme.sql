@@ -5,10 +5,12 @@ CREATE TYPE status_envio_enum AS ENUM ('PENDENTE', 'PROCESSANDO', 'ENVIADO', 'FA
 
 -- 1. Tabela de Lembretes (Espelho para o Agendamento Local)
 CREATE TABLE lembrete_medicao (
-    -- Utilizando UUID no lugar de INT para evitar colisão em sistemas distribuídos e offline
-    id_lembrete UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    id_cliente UUID NOT NULL REFERENCES usuario_cliente(id_cliente) ON DELETE CASCADE,
-    id_tipo_medicao UUID NOT NULL REFERENCES tipo_medicao(id_tipo_medicao) ON DELETE RESTRICT,
+    -- Ajustado para VARCHAR(255) para suportar IDs gerados pelo WatermelonDB (ex: a1b2c3d4e5f6g7h8)
+    id_lembrete VARCHAR(255) PRIMARY KEY,
+    
+    -- Ajustado para VARCHAR(255) para manter consistência com as tabelas referenciadas
+    id_cliente VARCHAR(255) NOT NULL REFERENCES usuario_cliente(id_cliente) ON DELETE CASCADE,
+    id_tipo_medicao VARCHAR(255) NOT NULL REFERENCES tipo_medicao(id_tipo_medicao) ON DELETE RESTRICT,
     
     -- Dados consumidos pelo React Native para programar o alarme nativo
     horario_programado TIME NOT NULL, 
@@ -16,17 +18,20 @@ CREATE TABLE lembrete_medicao (
     notificacao_ativa BOOLEAN NOT NULL DEFAULT TRUE,
     frequencia_dias frequencia_dias_enum NOT NULL,
     
-    -- Estrutura fundamental para Sincronização Offline-first (Optimistic Concurrency Control)
+    -- Estrutura fundamental para Sincronização Offline-first (WatermelonDB)
     versao INTEGER NOT NULL DEFAULT 1,
-    criado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    
+    -- Nomenclatura ajustada para o padrão do WatermelonDB e adição do deleted_at
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE
 );
 
--- Trigger para atualizar o timestamp do lembrete automaticamente (útil para o pull do offline-first)
+-- Trigger para atualizar o timestamp e versão (útil para o pull do offline-first e concorrência)
 CREATE OR REPLACE FUNCTION atualiza_timestamp_lembrete()
 RETURNS TRIGGER AS $$
 BEGIN
-   NEW.atualizado_em = NOW();
+   NEW.updated_at = NOW();
    NEW.versao = OLD.versao + 1;
    RETURN NEW;
 END;
@@ -38,9 +43,15 @@ FOR EACH ROW EXECUTE PROCEDURE atualiza_timestamp_lembrete();
 
 -- 2. Tabela de Alarmes (Acionada ativamente pelo Backend/Workers)
 CREATE TABLE mensagem_alarmante (
-    id_alarme UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    id_contato_emergencia UUID NOT NULL REFERENCES contato_de_emergencia(id_contato_emergencia) ON DELETE CASCADE,
-    id_evento_medicao UUID NOT NULL REFERENCES evento_medicao(id_evento) ON DELETE CASCADE,
+    -- Esta tabela provavelmente NÃO será sincronizada com o WatermelonDB (é uso interno do backend),
+    -- mas usando VARCHAR(255) mantém a padronização do banco.
+    id_alarme VARCHAR(255) PRIMARY KEY,
+    
+    -- Assumindo que contato_de_emergencia (ainda não definido nas mensagens anteriores) também usará VARCHAR(255)
+    id_contato_emergencia VARCHAR(255) NOT NULL REFERENCES contato_de_emergencia(id_contato_emergencia) ON DELETE CASCADE,
+    
+    -- Corrigida a referência: em 02_medicao_schema.sql o nome da coluna é id_evento_medicao, não id_evento
+    id_evento_medicao VARCHAR(255) NOT NULL REFERENCES evento_medicao(id_evento_medicao) ON DELETE CASCADE,
     
     -- Dados da emergência gerados a partir da avaliação do payload FHIR
     texto_da_notificacao VARCHAR(500) NOT NULL,
@@ -50,12 +61,14 @@ CREATE TABLE mensagem_alarmante (
     -- Rastreabilidade de tempo crítico
     data_e_hora_do_envio TIMESTAMP WITH TIME ZONE,
     data_e_hora_do_recebimento TIMESTAMP WITH TIME ZONE,
-    criado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    
+    -- Se esta tabela for sincronizada para o app exibir histórico, adicione updated_at e deleted_at também.
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Índices essenciais para escalabilidade
 -- Acelera a busca de lembretes que precisam ser sincronizados com o app após uma data específica
-CREATE INDEX idx_lembrete_sincronizacao ON lembrete_medicao(id_cliente, atualizado_em);
+CREATE INDEX idx_lembrete_sincronizacao ON lembrete_medicao(id_cliente, updated_at);
 
 -- Acelera o trabalho dos workers que buscam mensagens pendentes de envio na fila
 CREATE INDEX idx_alarme_pendente ON mensagem_alarmante(status_de_envio) WHERE status_de_envio = 'PENDENTE';
