@@ -1,0 +1,52 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Measurement {
+  // ID gerado no celular pelo WatermelonDB (String)
+  id          String   @id
+
+  // Identificação do usuário dono da medição
+  user_id     String   
+
+  // Tipo de medição para separar os registros (Glicose ou Pressão)
+  type        MeasurementType
+
+  // Valores (Permitem nulos pois uma linha guarda ou pressão ou glicose)
+  systolic    Float?   // Pressão sistólica
+  diastolic   Float?   // Pressão diastólica
+  glucose     Float?   // Nível de glicose
+  unit        String   // Ex: "mg/dL", "mmHg"
+
+  // Data em que o usuário de fato realizou a medição no aparelho
+  measured_at DateTime 
+
+  // ------------------------------------------------------------------
+  // CAMPOS DE CONTROLE OFFLINE-FIRST (Sincronização WatermelonDB)
+  // ------------------------------------------------------------------
+  
+  // Data de criação original (pode ser gerada no celular e enviada)
+  created_at  DateTime @default(now())
+  
+  // Usado para o WatermelonDB saber quais registros sofreram alterações 
+  // desde a última sincronização (pull). O Prisma atualiza automaticamente.
+  updated_at  DateTime @updatedAt
+  
+  // Soft Delete: Essencial para o offline-first. 
+  // Quando o usuário deleta no app offline, a linha ganha um timestamp aqui.
+  // No próximo "pull" de sincronização, o backend envia este registro para
+  // os outros dispositivos avisando: "apaguem esse ID localmente".
+  deleted_at  DateTime?
+
+  @@map("measurements") // Boa prática: tabelas em minúsculo e plural no Postgres
+}
+
+enum MeasurementType {
+  GLUCOSE
+  BLOOD_PRESSURE
+}
