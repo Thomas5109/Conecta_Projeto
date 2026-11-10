@@ -6,8 +6,8 @@ CREATE TYPE status_contato_enum AS ENUM ('ATIVO', 'INATIVO', 'BLOQUEADO');
 -- TABELA DE CONTATO DE EMERGÊNCIA (Sincronizada via WatermelonDB)
 -- ============================================================================
 CREATE TABLE contato_de_emergencia (
-    -- Ajustado para VARCHAR(255) para suportar o padrão de IDs do WatermelonDB
-    id_contato_emergencia VARCHAR(255) PRIMARY KEY,
+    -- Ajustado para VARCHAR(255) com DEFAULT UUID para suportar criação no backend ou WatermelonDB
+    id_contato_emergencia VARCHAR(255) PRIMARY KEY DEFAULT gen_random_uuid()::text,
     
     -- Chave estrangeira ligando ao cliente, também em VARCHAR(255)
     id_cliente VARCHAR(255) NOT NULL,

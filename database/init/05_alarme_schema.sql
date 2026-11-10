@@ -6,8 +6,8 @@ CREATE TYPE status_envio_enum AS ENUM ('PENDENTE', 'PROCESSANDO', 'ENVIADO', 'FA
 -- Gerada offline no Android e sincronizada via WatermelonDB para o Backend
 -- ============================================================================
 CREATE TABLE alerta_medicao (
-    -- ID alfanumérico gerado nativamente pelo WatermelonDB no momento offline
-    id_alerta VARCHAR(255) PRIMARY KEY,
+    -- ID alfanumérico gerado pelo WatermelonDB ou UUID padrão
+    id_alerta VARCHAR(255) PRIMARY KEY DEFAULT gen_random_uuid()::text,
     
     -- Vínculo com a medição exata que disparou o alarme
     id_evento_medicao VARCHAR(255) NOT NULL REFERENCES evento_medicao(id_evento_medicao) ON DELETE CASCADE,
@@ -31,7 +31,7 @@ CREATE TABLE alerta_medicao (
 -- ou pelo Backend ao receber o AlertaMedicao. Preparada para sync.
 -- ============================================================================
 CREATE TABLE envio_alerta (
-    id_envio VARCHAR(255) PRIMARY KEY,
+    id_envio VARCHAR(255) PRIMARY KEY DEFAULT gen_random_uuid()::text,
     
     id_alerta VARCHAR(255) NOT NULL REFERENCES alerta_medicao(id_alerta) ON DELETE CASCADE,
     id_contato_emergencia VARCHAR(255) NOT NULL REFERENCES contato_de_emergencia(id_contato_emergencia) ON DELETE CASCADE,

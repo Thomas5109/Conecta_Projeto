@@ -5,7 +5,7 @@ CREATE TYPE frequencia_dias_enum AS ENUM ('DIARIAMENTE', 'DIAS_UTEIS', 'FINS_DE_
 -- 1. TABELA DE LEMBRETES (Sincronizada via WatermelonDB)
 -- ============================================================================
 CREATE TABLE lembrete_medicao (
-    id_lembrete VARCHAR(255) PRIMARY KEY,
+    id_lembrete VARCHAR(255) PRIMARY KEY DEFAULT gen_random_uuid()::text,
     id_cliente VARCHAR(255) NOT NULL REFERENCES usuario_cliente(id_cliente) ON DELETE CASCADE,
     id_tipo_medicao VARCHAR(255) NOT NULL REFERENCES tipo_medicao(id_tipo_medicao) ON DELETE RESTRICT,
     

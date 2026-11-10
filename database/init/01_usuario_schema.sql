@@ -3,8 +3,8 @@ CREATE TYPE tipo_usr AS ENUM ('CLIENTE', 'ADMIN');
 CREATE TYPE sexo_enum AS ENUM ('MASCULINO', 'FEMININO', 'OUTRO');
 
 CREATE TABLE usuario (
-    -- Alterado para VARCHAR para suportar IDs gerados pelo WatermelonDB no frontend
-    id_usuario VARCHAR(255) PRIMARY KEY, 
+    -- Suporta IDs UUID gerados automaticamente ou fornecidos pelo WatermelonDB/backend
+    id_usuario VARCHAR(255) PRIMARY KEY DEFAULT gen_random_uuid()::text, 
     CPF VARCHAR(11) UNIQUE NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     status_da_conta status_conta DEFAULT 'ATIVO',
@@ -19,7 +19,7 @@ CREATE TABLE usuario (
 );
 
 CREATE TABLE usuario_cliente (
-    id_cliente VARCHAR(255) PRIMARY KEY,
+    id_cliente VARCHAR(255) PRIMARY KEY DEFAULT gen_random_uuid()::text,
     id_usuario VARCHAR(255) NOT NULL UNIQUE,
     nome VARCHAR(255) NOT NULL,
     telefone VARCHAR(25) NOT NULL,
