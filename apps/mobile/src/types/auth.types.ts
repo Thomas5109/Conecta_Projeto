@@ -1,11 +1,11 @@
 export interface LoginResponse {
     mensagem: string;
     usuario: {
-        idUsuario: number;
+        idUsuario: string | number;
         email: string;
         tipoUsuario: string;
         cliente: {
-            idCliente: number;
+            idCliente: string | number;
             nome: string | null;
         } | null;
     };

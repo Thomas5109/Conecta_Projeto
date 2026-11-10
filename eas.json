@@ -1,0 +1,27 @@
+{
+  "cli": {
+    "version": ">= 27.5.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "applicationId": "com.thomas5109steam.mobile",
+      "env": {
+        "EXPO_USE_PATH_ALIASES": "1"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "applicationId": "com.thomas5109steam.mobile"
+    },
+    "production": {
+      "autoIncrement": true,
+      "applicationId": "com.thomas5109steam.mobile"
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

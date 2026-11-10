@@ -2,11 +2,13 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types/navigation.types';
 import { useState } from 'react';
-import { Pressable, Text, TextInput } from 'react-native';
+import { Pressable, Text, TextInput, Alert } from 'react-native';
 import MainScreenLayout from '../components/MainScreenLayout';
-import { adicionarMedicao } from '../services/storage/localData';
 import { localDataStyles as styles } from '../theme/localDataStyles';
 import { colors } from '../theme/colors';
+
+// Importa a nova função do repositório WatermelonDB
+import { salvarMedicaoPressao } from '../database/helpers/measurementRepository';
 
 export default function PressaoScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -15,7 +17,26 @@ export default function PressaoScreen() {
     const [erro, setErro] = useState('');
     const [carregando, setCarregando] = useState(false);
 
-    async function salvar() {
+    // TODO: Substituir pelo ID real do usuário logado vindo do Contexto de Autenticação
+    const ID_CLIENTE_LOGADO = 'id-mock-do-usuario';
+
+    async function registrarNoBancoOffline(sys: number, dia: number) {
+        setCarregando(true);
+        try {
+            // Salva no WatermelonDB, gera UUID, Payload FHIR e status 'PENDENTE'
+            await salvarMedicaoPressao(sys, dia, ID_CLIENTE_LOGADO);
+            
+            setSistolica('');
+            setDiastolica('');
+            navigation.navigate('Historico');
+        } catch {
+            setErro('Não foi possível salvar a medição no banco local.');
+        } finally {
+            setCarregando(false);
+        }
+    }
+
+    function processarMedicao() {
         setErro('');
         let sistolicaNumero = Number(sistolica);
         let diastolicaNumero = Number(diastolica);
@@ -28,21 +49,23 @@ export default function PressaoScreen() {
         if (sistolicaNumero < 30) sistolicaNumero *= 10;
         if (diastolicaNumero < 30) diastolicaNumero *= 10;
 
-        setCarregando(true);
-        try {
-            await adicionarMedicao({
-                id: Date.now().toString(),
-                tipo: 'Pressão',
-                valor: `${sistolicaNumero} / ${diastolicaNumero} mmHg`,
-                data: new Date().toLocaleString('pt-BR'),
-            });
-            setSistolica('');
-            setDiastolica('');
-            navigation.navigate('Historico');
-        } catch {
-            setErro('Não foi possível salvar a medição neste aparelho.');
-        } finally {
-            setCarregando(false);
+        // Validação Clínica Local (Regra de Negócio Offline)
+        // Crise hipertensiva: Sistólica >= 180 ou Diastólica >= 120
+        const isCritico = sistolicaNumero >= 180 || diastolicaNumero >= 120;
+
+        if (isCritico) {
+            // Tela de Double Check (Confirmação)
+            Alert.alert(
+                "Atenção: Crise Hipertensiva",
+                `A medição de ${sistolicaNumero}/${diastolicaNumero} mmHg apresenta alto risco. Tem certeza que digitou corretamente?`,
+                [
+                    { text: "Não, vou corrigir", style: "cancel" },
+                    { text: "Sim, salvar", style: "destructive", onPress: () => registrarNoBancoOffline(sistolicaNumero, diastolicaNumero) }
+                ]
+            );
+        } else {
+            // Valor normal ou alteração leve, salva direto
+            registrarNoBancoOffline(sistolicaNumero, diastolicaNumero);
         }
     }
 
@@ -76,7 +99,7 @@ export default function PressaoScreen() {
             {erro !== '' && <Text style={styles.erro} accessibilityRole="alert">{erro}</Text>}
             <Pressable
                 style={[styles.botao, carregando && { opacity: 0.7 }]}
-                onPress={salvar}
+                onPress={processarMedicao}
                 disabled={carregando}
                 accessibilityRole="button"
             >
@@ -85,5 +108,3 @@ export default function PressaoScreen() {
         </MainScreenLayout>
     );
 }
-
-

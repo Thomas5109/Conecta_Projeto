@@ -5,6 +5,8 @@
     "module": "commonjs",
     "types": ["node"],
     "strict": true,
+    "strictPropertyInitialization": false,
+    "useDefineForClassFields": false,
     "experimentalDecorators": true
   }
 }

@@ -15,11 +15,11 @@ export class AuthServiceError extends Error {
 
 // Dados seguros do usuário (sem a senha/hash).
 export interface UsuarioAutenticado {
-    idUsuario: number;
+    idUsuario: string;
     email: string;
     tipoUsuario: string;
     cliente: {
-        idCliente: number;
+        idCliente: string;
         nome: string | null;
     } | null;
 }

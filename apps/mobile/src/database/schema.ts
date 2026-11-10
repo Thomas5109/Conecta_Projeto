@@ -10,6 +10,7 @@ export const mySchema = appSchema({
             { name: 'tipo_medicao_id', type: 'string' },
             { name: 'data_hora', type: 'number' }, // WatermelonDB prefere timestamps numéricos
             { name: 'fhir_payload', type: 'string' }, // SQLite não tem JSONB, salvamos como string JSON
+            { name: 'is_critico', type: 'boolean' },
             { name: 'sync_status', type: 'string' }, // 'pendente', 'sincronizado'
             { name: 'created_at', type: 'number' },
             { name: 'updated_at', type: 'number' },

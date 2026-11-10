@@ -6,11 +6,11 @@ export interface LoginBody {
 
 // Formato dos dados que o PostgreSQL retorna ao buscar um usuário.
 export interface UsuarioRow {
-    id_usuario: number;
+    id_usuario: string;
     email: string;
     senha: string;
     status_da_conta: string;
     tipo_usuario: string;
-    id_cliente: number | null;
+    id_cliente: string | null;
     nome: string | null;
 }

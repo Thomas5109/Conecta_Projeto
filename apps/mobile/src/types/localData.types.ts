@@ -19,8 +19,8 @@ export interface ContatoLocal {
 }
 
 export interface UsuarioLocal {
-    idUsuario: number;
-    idCliente: number | null;
+    idUsuario: string | number;
+    idCliente: string | number | null;
     nome: string;
     email: string;
     tipoUsuario: string;
