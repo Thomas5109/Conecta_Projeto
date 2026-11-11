@@ -1,4 +1,4 @@
-import prisma from '../database.js';
+import prisma from '../../infrastructure/database/Prisma.database.js';
 import { Prisma, EventoMedicao } from '@prisma/client';
 
 // Tipagem padrão do payload de Push do WatermelonDB
