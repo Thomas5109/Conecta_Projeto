@@ -1,52 +1,198 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["partialIndexes"]
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
-model Measurement {
-  // ID gerado no celular pelo WatermelonDB (String)
-  id          String   @id
+model EventoMedicao {
+  id_evento_medicao        String           @id @default(dbgenerated("(gen_random_uuid())::text")) @db.VarChar(255)
+  id_cliente               String           @db.VarChar(255)
+  id_tipo_medicao          String           @db.VarChar(255)
+  data_hora_do_evento      DateTime         @db.Timestamptz(6)
+  fhir_observation_payload Json
+  created_at               DateTime?        @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime?        @default(now()) @updatedAt @db.Timestamptz(6)
+  deleted_at               DateTime?        @db.Timestamptz(6)
+  alerta_medicao           alerta_medicao[]
+  usuario_cliente          usuario_cliente  @relation(fields: [id_cliente], references: [id_cliente], onDelete: Cascade, onUpdate: NoAction, map: "fk_evento_cliente")
+  tipo_medicao             tipo_medicao     @relation(fields: [id_tipo_medicao], references: [id_tipo_medicao], onDelete: NoAction, onUpdate: NoAction, map: "fk_tipo_medicao")
 
-  // Identificação do usuário dono da medição
-  user_id     String   
-
-  // Tipo de medição para separar os registros (Glicose ou Pressão)
-  type        MeasurementType
-
-  // Valores (Permitem nulos pois uma linha guarda ou pressão ou glicose)
-  systolic    Float?   // Pressão sistólica
-  diastolic   Float?   // Pressão diastólica
-  glucose     Float?   // Nível de glicose
-  unit        String   // Ex: "mg/dL", "mmHg"
-
-  // Data em que o usuário de fato realizou a medição no aparelho
-  measured_at DateTime 
-
-  // ------------------------------------------------------------------
-  // CAMPOS DE CONTROLE OFFLINE-FIRST (Sincronização WatermelonDB)
-  // ------------------------------------------------------------------
-  
-  // Data de criação original (pode ser gerada no celular e enviada)
-  created_at  DateTime @default(now())
-  
-  // Usado para o WatermelonDB saber quais registros sofreram alterações 
-  // desde a última sincronização (pull). O Prisma atualiza automaticamente.
-  updated_at  DateTime @updatedAt
-  
-  // Soft Delete: Essencial para o offline-first. 
-  // Quando o usuário deleta no app offline, a linha ganha um timestamp aqui.
-  // No próximo "pull" de sincronização, o backend envia este registro para
-  // os outros dispositivos avisando: "apaguem esse ID localmente".
-  deleted_at  DateTime?
-
-  @@map("measurements") // Boa prática: tabelas em minúsculo e plural no Postgres
+  @@index([fhir_observation_payload], map: "idx_evento_medicao_fhir", type: Gin)
+  @@map("evento_medicao")
 }
 
-enum MeasurementType {
-  GLUCOSE
-  BLOOD_PRESSURE
+model alerta_medicao {
+  id_alerta            String         @id @default(dbgenerated("(gen_random_uuid())::text")) @db.VarChar(255)
+  id_evento_medicao    String         @db.VarChar(255)
+  texto_da_notificacao String         @db.VarChar(500)
+  data_e_hora_geracao  DateTime       @db.Timestamptz(6)
+  created_at           DateTime?      @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime?      @default(now()) @db.Timestamptz(6)
+  deleted_at           DateTime?      @db.Timestamptz(6)
+  evento_medicao       EventoMedicao  @relation(fields: [id_evento_medicao], references: [id_evento_medicao], onDelete: Cascade, onUpdate: NoAction)
+  envio_alerta         envio_alerta[]
+
+  @@index([id_evento_medicao], map: "idx_alerta_evento")
+}
+
+model contato_de_emergencia {
+  id_contato_emergencia String              @id @default(dbgenerated("(gen_random_uuid())::text")) @db.VarChar(255)
+  id_cliente            String              @db.VarChar(255)
+  nome                  String              @db.VarChar(255)
+  telefone              String              @db.VarChar(25)
+  parentesco            parentesco_enum
+  status                status_contato_enum @default(ATIVO)
+  created_at            DateTime?           @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime?           @default(now()) @db.Timestamptz(6)
+  deleted_at            DateTime?           @db.Timestamptz(6)
+  usuario_cliente       usuario_cliente     @relation(fields: [id_cliente], references: [id_cliente], onDelete: Cascade, onUpdate: NoAction, map: "fk_contato_cliente")
+  envio_alerta          envio_alerta[]
+
+  @@index([id_cliente], map: "idx_contato_emergencia_cliente")
+  @@index([id_cliente, updated_at], map: "idx_contato_emergencia_sync")
+}
+
+model envio_alerta {
+  id_envio                   String                 @id @default(dbgenerated("(gen_random_uuid())::text")) @db.VarChar(255)
+  id_alerta                  String                 @db.VarChar(255)
+  id_contato_emergencia      String                 @db.VarChar(255)
+  canal_de_comunicacao       canal_comunicacao_enum
+  status_de_envio            status_envio_enum      @default(PENDENTE)
+  data_e_hora_do_envio       DateTime?              @db.Timestamptz(6)
+  data_e_hora_do_recebimento DateTime?              @db.Timestamptz(6)
+  created_at                 DateTime?              @default(now()) @db.Timestamptz(6)
+  updated_at                 DateTime?              @default(now()) @db.Timestamptz(6)
+  deleted_at                 DateTime?              @db.Timestamptz(6)
+  alerta_medicao             alerta_medicao         @relation(fields: [id_alerta], references: [id_alerta], onDelete: Cascade, onUpdate: NoAction)
+  contato_de_emergencia      contato_de_emergencia  @relation(fields: [id_contato_emergencia], references: [id_contato_emergencia], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([status_de_envio], map: "idx_envio_alerta_pendente", where: raw("(status_de_envio = 'PENDENTE'::status_envio_enum)"))
+}
+
+model lembrete_medicao {
+  id_lembrete        String               @id @default(dbgenerated("(gen_random_uuid())::text")) @db.VarChar(255)
+  id_cliente         String               @db.VarChar(255)
+  id_tipo_medicao    String               @db.VarChar(255)
+  horario_programado DateTime             @db.Time(6)
+  fuso_horario       String               @default("America/Campo_Grande") @db.VarChar(50)
+  notificacao_ativa  Boolean              @default(true)
+  frequencia_dias    frequencia_dias_enum
+  versao             Int                  @default(1)
+  created_at         DateTime?            @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?            @default(now()) @db.Timestamptz(6)
+  deleted_at         DateTime?            @db.Timestamptz(6)
+  usuario_cliente    usuario_cliente      @relation(fields: [id_cliente], references: [id_cliente], onDelete: Cascade, onUpdate: NoAction)
+  tipo_medicao       tipo_medicao         @relation(fields: [id_tipo_medicao], references: [id_tipo_medicao], onUpdate: NoAction)
+
+  @@index([id_cliente, updated_at], map: "idx_lembrete_sincronizacao")
+}
+
+model tipo_medicao {
+  id_tipo_medicao   String               @id @default(dbgenerated("(gen_random_uuid())::text")) @db.VarChar(255)
+  nome_medicao      String               @unique @db.VarChar(30)
+  unidade_de_medida tipo_de_unidade_ucum
+  codigo_loinc      tipo_de_codigo_loinc
+  created_at        DateTime?            @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime?            @default(now()) @db.Timestamptz(6)
+  deleted_at        DateTime?            @db.Timestamptz(6)
+  evento_medicao    EventoMedicao[]
+  lembrete_medicao  lembrete_medicao[]
+}
+
+model usuario {
+  id_usuario      String           @id @default(dbgenerated("(gen_random_uuid())::text")) @db.VarChar(255)
+  cpf             String           @unique @db.VarChar(11)
+  email           String           @unique @db.VarChar(255)
+  status_da_conta status_conta?    @default(ATIVO)
+  tipo_usuario    tipo_usr?        @default(CLIENTE)
+  senha           String           @db.VarChar(255)
+  data_cadastro   DateTime         @default(dbgenerated("CURRENT_DATE")) @db.Date
+  created_at      DateTime?        @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime?        @default(now()) @db.Timestamptz(6)
+  deleted_at      DateTime?        @db.Timestamptz(6)
+  usuario_cliente usuario_cliente?
+}
+
+model usuario_cliente {
+  id_cliente            String                  @id @default(dbgenerated("(gen_random_uuid())::text")) @db.VarChar(255)
+  id_usuario            String                  @unique @db.VarChar(255)
+  nome                  String                  @db.VarChar(255)
+  telefone              String                  @db.VarChar(25)
+  data_de_nascimento    DateTime                @db.Date
+  sexo                  sexo_enum
+  created_at            DateTime?               @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime?               @default(now()) @db.Timestamptz(6)
+  deleted_at            DateTime?               @db.Timestamptz(6)
+  contato_de_emergencia contato_de_emergencia[]
+  evento_medicao        EventoMedicao[]
+  lembrete_medicao      lembrete_medicao[]
+  usuario               usuario                 @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade, onUpdate: NoAction, map: "fk_usuario")
+}
+
+enum canal_comunicacao_enum {
+  WHATSAPP
+  SMS
+  PUSH
+  LIGACAO
+}
+
+enum frequencia_dias_enum {
+  DIARIAMENTE
+  DIAS_UTEIS
+  FINS_DE_SEMANA
+  PERSONALIZADO
+}
+
+enum parentesco_enum {
+  CONJUGE
+  FILHO_A
+  IRMAO_A
+  PAI_MAE
+  AMIGO_A
+  CUIDADOR_A
+  OUTRO
+}
+
+enum sexo_enum {
+  MASCULINO
+  FEMININO
+  OUTRO
+}
+
+enum status_conta {
+  ATIVO
+  INATIVO
+  SUSPENSO
+}
+
+enum status_contato_enum {
+  ATIVO
+  INATIVO
+  BLOQUEADO
+}
+
+enum status_envio_enum {
+  PENDENTE
+  PROCESSANDO
+  ENVIADO
+  FALHA
+  ENTREGUE
+}
+
+enum tipo_de_codigo_loinc {
+  code_41653_7 @map("41653-7")
+  code_85354_9 @map("85354-9")
+}
+
+enum tipo_de_unidade_ucum {
+  mg_dL  @map("mg/dL")
+  mm_Hg  @map("mm[Hg]")
+}
+
+enum tipo_usr {
+  CLIENTE
+  ADMIN
 }

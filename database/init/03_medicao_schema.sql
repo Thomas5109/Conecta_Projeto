@@ -41,7 +41,11 @@ CREATE TABLE evento_medicao (
         IN ('registered', 'preliminary', 'final', 'amended')),
 
     CONSTRAINT fk_tipo_medicao
-        FOREIGN KEY (id_tipo_medicao) REFERENCES tipo_medicao(id_tipo_medicao)
+        FOREIGN KEY (id_tipo_medicao) REFERENCES tipo_medicao(id_tipo_medicao),
+
+    ADD CONSTRAINT fk_evento_cliente
+        FOREIGN KEY (id_cliente) REFERENCES usuario_cliente(id_cliente)
+        ON DELETE CASCADE
 );
 
 -- Indexando a coluna JSONB para buscas de alta performance dentro do payload
