@@ -13,8 +13,8 @@ model EventoMedicao {
   id_tipo_medicao          String           @db.VarChar(255)
   data_hora_do_evento      DateTime         @db.Timestamptz(6)
   fhir_observation_payload Json
-  created_at               DateTime?        @default(now()) @db.Timestamptz(6)
-  updated_at               DateTime?        @default(now()) @updatedAt @db.Timestamptz(6)
+  created_at               DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime         @default(now()) @updatedAt @db.Timestamptz(6)
   deleted_at               DateTime?        @db.Timestamptz(6)
   alerta_medicao           alerta_medicao[]
   usuario_cliente          usuario_cliente  @relation(fields: [id_cliente], references: [id_cliente], onDelete: Cascade, onUpdate: NoAction, map: "fk_evento_cliente")
@@ -29,8 +29,8 @@ model alerta_medicao {
   id_evento_medicao    String         @db.VarChar(255)
   texto_da_notificacao String         @db.VarChar(500)
   data_e_hora_geracao  DateTime       @db.Timestamptz(6)
-  created_at           DateTime?      @default(now()) @db.Timestamptz(6)
-  updated_at           DateTime?      @default(now()) @db.Timestamptz(6)
+  created_at           DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime       @default(now()) @db.Timestamptz(6)
   deleted_at           DateTime?      @db.Timestamptz(6)
   evento_medicao       EventoMedicao  @relation(fields: [id_evento_medicao], references: [id_evento_medicao], onDelete: Cascade, onUpdate: NoAction)
   envio_alerta         envio_alerta[]
@@ -45,8 +45,8 @@ model contato_de_emergencia {
   telefone              String              @db.VarChar(25)
   parentesco            parentesco_enum
   status                status_contato_enum @default(ATIVO)
-  created_at            DateTime?           @default(now()) @db.Timestamptz(6)
-  updated_at            DateTime?           @default(now()) @db.Timestamptz(6)
+  created_at            DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime            @default(now()) @db.Timestamptz(6)
   deleted_at            DateTime?           @db.Timestamptz(6)
   usuario_cliente       usuario_cliente     @relation(fields: [id_cliente], references: [id_cliente], onDelete: Cascade, onUpdate: NoAction, map: "fk_contato_cliente")
   envio_alerta          envio_alerta[]
@@ -63,8 +63,8 @@ model envio_alerta {
   status_de_envio            status_envio_enum      @default(PENDENTE)
   data_e_hora_do_envio       DateTime?              @db.Timestamptz(6)
   data_e_hora_do_recebimento DateTime?              @db.Timestamptz(6)
-  created_at                 DateTime?              @default(now()) @db.Timestamptz(6)
-  updated_at                 DateTime?              @default(now()) @db.Timestamptz(6)
+  created_at                 DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at                 DateTime               @default(now()) @db.Timestamptz(6)
   deleted_at                 DateTime?              @db.Timestamptz(6)
   alerta_medicao             alerta_medicao         @relation(fields: [id_alerta], references: [id_alerta], onDelete: Cascade, onUpdate: NoAction)
   contato_de_emergencia      contato_de_emergencia  @relation(fields: [id_contato_emergencia], references: [id_contato_emergencia], onDelete: Cascade, onUpdate: NoAction)
@@ -81,8 +81,8 @@ model lembrete_medicao {
   notificacao_ativa  Boolean              @default(true)
   frequencia_dias    frequencia_dias_enum
   versao             Int                  @default(1)
-  created_at         DateTime?            @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime?            @default(now()) @db.Timestamptz(6)
+  created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
   deleted_at         DateTime?            @db.Timestamptz(6)
   usuario_cliente    usuario_cliente      @relation(fields: [id_cliente], references: [id_cliente], onDelete: Cascade, onUpdate: NoAction)
   tipo_medicao       tipo_medicao         @relation(fields: [id_tipo_medicao], references: [id_tipo_medicao], onUpdate: NoAction)
@@ -95,8 +95,8 @@ model tipo_medicao {
   nome_medicao      String               @unique @db.VarChar(30)
   unidade_de_medida tipo_de_unidade_ucum
   codigo_loinc      tipo_de_codigo_loinc
-  created_at        DateTime?            @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime?            @default(now()) @db.Timestamptz(6)
+  created_at        DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime             @default(now()) @db.Timestamptz(6)
   deleted_at        DateTime?            @db.Timestamptz(6)
   evento_medicao    EventoMedicao[]
   lembrete_medicao  lembrete_medicao[]
@@ -110,8 +110,8 @@ model usuario {
   tipo_usuario    tipo_usr?        @default(CLIENTE)
   senha           String           @db.VarChar(255)
   data_cadastro   DateTime         @default(dbgenerated("CURRENT_DATE")) @db.Date
-  created_at      DateTime?        @default(now()) @db.Timestamptz(6)
-  updated_at      DateTime?        @default(now()) @db.Timestamptz(6)
+  created_at      DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime         @default(now()) @db.Timestamptz(6)
   deleted_at      DateTime?        @db.Timestamptz(6)
   usuario_cliente usuario_cliente?
 }
@@ -123,8 +123,8 @@ model usuario_cliente {
   telefone              String                  @db.VarChar(25)
   data_de_nascimento    DateTime                @db.Date
   sexo                  sexo_enum
-  created_at            DateTime?               @default(now()) @db.Timestamptz(6)
-  updated_at            DateTime?               @default(now()) @db.Timestamptz(6)
+  created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime                @default(now()) @db.Timestamptz(6)
   deleted_at            DateTime?               @db.Timestamptz(6)
   contato_de_emergencia contato_de_emergencia[]
   evento_medicao        EventoMedicao[]
@@ -188,8 +188,8 @@ enum tipo_de_codigo_loinc {
 }
 
 enum tipo_de_unidade_ucum {
-  mg_dL  @map("mg/dL")
-  mm_Hg  @map("mm[Hg]")
+  mg_dL @map("mg/dL")
+  mm_Hg @map("mm[Hg]")
 }
 
 enum tipo_usr {

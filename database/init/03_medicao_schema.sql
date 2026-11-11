@@ -9,8 +9,8 @@ CREATE TABLE tipo_medicao (
     codigo_loinc tipo_de_codigo_loinc NOT NULL,
 
     -- Colunas de Controle de Sincronização (WatermelonDB)
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP WITH TIME ZONE
 );
 
@@ -29,8 +29,8 @@ CREATE TABLE evento_medicao (
     fhir_observation_payload JSONB NOT NULL,
     
     -- Colunas de Controle de Sincronização (WatermelonDB)
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP WITH TIME ZONE,
     
     CONSTRAINT chk_fhir_resource_type 
@@ -43,7 +43,7 @@ CREATE TABLE evento_medicao (
     CONSTRAINT fk_tipo_medicao
         FOREIGN KEY (id_tipo_medicao) REFERENCES tipo_medicao(id_tipo_medicao),
 
-    ADD CONSTRAINT fk_evento_cliente
+    CONSTRAINT fk_evento_cliente
         FOREIGN KEY (id_cliente) REFERENCES usuario_cliente(id_cliente)
         ON DELETE CASCADE
 );

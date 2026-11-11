@@ -19,8 +19,8 @@ CREATE TABLE contato_de_emergencia (
     status status_contato_enum NOT NULL DEFAULT 'ATIVO',
     
     -- Colunas de Controle de Sincronização (WatermelonDB)
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP WITH TIME ZONE,
     
     -- Constraint de Foreign Key nomeada para facilitar manutenção
