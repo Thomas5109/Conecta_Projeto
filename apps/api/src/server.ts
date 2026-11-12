@@ -10,6 +10,8 @@ try {
     await app.listen({
         port,
         host,
+    }).then(() => {
+      console.log('Servidor rodando!');
     });
 } catch (error) {
     app.log.error(error);
