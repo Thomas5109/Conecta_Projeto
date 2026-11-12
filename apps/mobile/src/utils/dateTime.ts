@@ -52,13 +52,13 @@ export function mascararHorario(valor: string): string {
     if (separador >= 0) {
         const horas = entrada.slice(0, separador).slice(0, 2);
         const minutos = entrada.slice(separador + 1).replace(/:/g, '').slice(0, 2);
-        return horas + ':' + minutos;
+        return (horas.length === 1 ? '0' + horas : horas) + ':' + minutos;
     }
 
     const digitos = entrada.replace(/\D/g, '').slice(0, 4);
     if (digitos.length <= 2) return digitos;
-    if (digitos.length === 3 && digitos[0] !== '0') {
-        return digitos.slice(0, 1) + ':' + digitos.slice(1);
+    if (digitos.length === 3) {
+        return '0' + digitos.slice(0, 1) + ':' + digitos.slice(1);
     }
     return digitos.slice(0, 2) + ':' + digitos.slice(2);
 }
@@ -100,6 +100,12 @@ export function formatarHorario(data: Date): string {
     const horas = String(data.getHours()).padStart(2, '0');
     const minutos = String(data.getMinutes()).padStart(2, '0');
     return horas + ':' + minutos;
+}
+
+export function formatarDataHoraCurta(data: string | Date): string {
+    const valor = data instanceof Date ? data : new Date(data);
+    if (Number.isNaN(valor.getTime())) return '';
+    return formatarDataBrasileira(valor) + ' · ' + formatarHorario(valor);
 }
 
 export function formatarDataHoraExibicao(valor: string): string {

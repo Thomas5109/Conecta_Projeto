@@ -10,7 +10,7 @@ const itens = [
     { tela: 'Historico', icone: '📊', rotulo: 'Histórico' },
     { tela: 'Alarme', icone: '⏰', rotulo: 'Lembretes' },
     { tela: 'Dicas', icone: '💡', rotulo: 'Dicas' },
-    { tela: 'Perfil', icone: '👤', rotulo: 'Perfil' },
+    { tela: 'Configuracoes', icone: '⚙️', rotulo: 'Config.' },
 ] as const;
 
 export default function Rodape() {

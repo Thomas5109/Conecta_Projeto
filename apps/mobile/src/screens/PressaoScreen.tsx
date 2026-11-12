@@ -28,7 +28,11 @@ export default function PressaoScreen() {
             
             setSistolica('');
             setDiastolica('');
-            navigation.navigate('Historico');
+            Alert.alert(
+                'Medição salva',
+                'O registro foi guardado neste aparelho e está aguardando sincronização.',
+                [{ text: 'Ver histórico', onPress: () => navigation.navigate('Historico') }, { text: 'OK' }],
+            );
         } catch {
             setErro('Não foi possível salvar a medição no banco local.');
         } finally {
@@ -72,7 +76,7 @@ export default function PressaoScreen() {
     return (
         <MainScreenLayout>
             <Text style={styles.titulo}>Registrar pressão arterial</Text>
-            <Text style={styles.subtitulo}>A medição ficará salva neste aparelho.</Text>
+            <Text style={styles.subtitulo}>A medição ficará salva neste aparelho; a sincronização será indicada no histórico.</Text>
 
             <Text style={styles.rotulo}>Pressão sistólica (máxima)</Text>
             <TextInput

@@ -5,13 +5,16 @@ import { listarContatos, salvarContatos } from '../services/storage/localData';
 import { localDataStyles as styles } from '../theme/localDataStyles';
 import { colors } from '../theme/colors';
 import type { ContatoLocal } from '../types/localData.types';
+import { formatarDdd, formatarNumeroTelefone, formatarTelefoneCompleto } from '../utils/phone';
 
 export default function ContatosScreen() {
     const [nome, setNome] = useState('');
-    const [telefone, setTelefone] = useState('');
+    const [ddd, setDdd] = useState('');
+    const [numeroTelefone, setNumeroTelefone] = useState('');
     const [parentesco, setParentesco] = useState('');
     const [contatos, setContatos] = useState<ContatoLocal[]>([]);
     const [erro, setErro] = useState('');
+    const [mensagem, setMensagem] = useState('');
 
     useEffect(() => {
         let ativo = true;
@@ -29,8 +32,9 @@ export default function ContatosScreen() {
 
     async function adicionar() {
         setErro('');
-        if (!nome.trim() || !telefone.trim()) {
-            setErro('Informe o nome e o telefone do contato.');
+        setMensagem('');
+        if (!nome.trim() || ddd.replace(/\D/g, '').length !== 2 || ![8, 9].includes(numeroTelefone.replace(/\D/g, '').length)) {
+            setErro('Informe o nome, o DDD com 2 números e um telefone válido.');
             return;
         }
 
@@ -39,7 +43,7 @@ export default function ContatosScreen() {
             {
                 id: Date.now().toString(),
                 nome: nome.trim(),
-                telefone: telefone.trim(),
+                telefone: formatarTelefoneCompleto(ddd, numeroTelefone),
                 parentesco: parentesco.trim() || 'Contato',
             },
         ];
@@ -48,8 +52,10 @@ export default function ContatosScreen() {
             await salvarContatos(atualizados);
             setContatos(atualizados);
             setNome('');
-            setTelefone('');
+            setDdd('');
+            setNumeroTelefone('');
             setParentesco('');
+            setMensagem('Contato salvo neste aparelho.');
         } catch {
             setErro('Não foi possível salvar o contato.');
         }
@@ -67,7 +73,7 @@ export default function ContatosScreen() {
 
     async function ligar(numero: string) {
         try {
-            await Linking.openURL(`tel:${numero}`);
+            await Linking.openURL(`tel:${numero.replace(/\D/g, '')}`);
         } catch {
             Alert.alert('Erro', 'Não foi possível abrir o aplicativo de telefone.');
         }
@@ -78,13 +84,23 @@ export default function ContatosScreen() {
             <Text style={styles.titulo}>Contatos de emergência</Text>
             <Text style={styles.subtitulo}>Contatos salvos somente neste aparelho.</Text>
 
-            <Text style={styles.rotulo}>Nome do contato</Text>
-            <TextInput style={styles.entrada} value={nome} onChangeText={setNome} placeholder="Nome" placeholderTextColor={colors.placeholder} />
-            <Text style={styles.rotulo}>Telefone</Text>
-            <TextInput style={styles.entrada} value={telefone} onChangeText={setTelefone} placeholder="DDD e número" placeholderTextColor={colors.placeholder} keyboardType="phone-pad" />
+            <Text style={styles.rotulo}>Nome do contato <Text style={styles.obrigatorioBadge}>  OBRIGATÓRIO  </Text></Text>
+            <TextInput style={[styles.entrada, styles.inputObrigatorio]} value={nome} onChangeText={setNome} placeholder="Nome" placeholderTextColor={colors.placeholder} />
+            <Text style={styles.rotulo}>Telefone <Text style={styles.obrigatorioBadge}>  OBRIGATÓRIO  </Text></Text>
+            <View style={styles.telefoneLinha}>
+                <View style={styles.telefoneDdd}>
+                    <Text style={styles.telefoneSubLabel}>DDD</Text>
+                    <TextInput style={[styles.entrada, styles.inputObrigatorio, styles.telefoneInput]} value={ddd} onChangeText={(valor) => setDdd(formatarDdd(valor))} placeholder="65" placeholderTextColor={colors.placeholder} keyboardType="number-pad" maxLength={2} accessibilityLabel="DDD do telefone de emergência" />
+                </View>
+                <View style={styles.telefoneNumero}>
+                    <Text style={styles.telefoneSubLabel}>Número do telefone</Text>
+                    <TextInput style={[styles.entrada, styles.inputObrigatorio, styles.telefoneInput]} value={numeroTelefone} onChangeText={(valor) => setNumeroTelefone(formatarNumeroTelefone(valor))} placeholder="9 1234-5678" placeholderTextColor={colors.placeholder} keyboardType="phone-pad" maxLength={12} accessibilityLabel="Número do telefone sem DDD" />
+                </View>
+            </View>
             <Text style={styles.rotulo}>Vínculo (opcional)</Text>
             <TextInput style={styles.entrada} value={parentesco} onChangeText={setParentesco} placeholder="Familiar, médico…" placeholderTextColor={colors.placeholder} />
             {erro !== '' && <Text style={styles.erro} accessibilityRole="alert">{erro}</Text>}
+            {mensagem !== '' && <Text style={styles.texto} accessibilityRole="status">{mensagem}</Text>}
             <Pressable style={styles.botao} onPress={adicionar} accessibilityRole="button">
                 <Text style={styles.textoBotao}>Adicionar contato</Text>
             </Pressable>

@@ -2,20 +2,7 @@ import { useState } from 'react';
 import { criarCliente } from '../services/api/clientApi';
 import type { SexoCliente } from '../types/client.types';
 import { dataBrasileiraParaISO, parseDataBrasileira } from '../utils/dateTime';
-
-function formatarNumeroTelefone(valor: string): string {
-    const digitos = valor.replace(/\D/g, '').slice(0, 9);
-
-    if (digitos.startsWith('9')) {
-        if (digitos.length <= 1) return digitos;
-        if (digitos.length <= 5) return digitos.slice(0, 1) + ' ' + digitos.slice(1);
-        return digitos.slice(0, 1) + ' ' + digitos.slice(1, 5) + '-' + digitos.slice(5);
-    }
-
-    return digitos.length <= 4
-        ? digitos
-        : digitos.slice(0, 4) + '-' + digitos.slice(4);
-}
+import { formatarNumeroTelefone } from '../utils/phone';
 
 export function useCadastro() {
     const [cpf, setCpf] = useState('');
@@ -31,6 +18,18 @@ export function useCadastro() {
 
     function alterarDdd(valor: string) {
         setDdd(valor.replace(/\D/g, '').slice(0, 2));
+    }
+
+    function alterarCpf(valor: string) {
+        const digitos = valor.replace(/\D/g, '').slice(0, 11);
+        const cpfFormatado = digitos.length <= 3
+            ? digitos
+            : digitos.length <= 6
+              ? digitos.slice(0, 3) + '.' + digitos.slice(3)
+              : digitos.length <= 9
+                ? digitos.slice(0, 3) + '.' + digitos.slice(3, 6) + '.' + digitos.slice(6)
+                : digitos.slice(0, 3) + '.' + digitos.slice(3, 6) + '.' + digitos.slice(6, 9) + '-' + digitos.slice(9);
+        setCpf(cpfFormatado);
     }
 
     function alterarNumeroTelefone(valor: string) {
@@ -117,7 +116,7 @@ export function useCadastro() {
 
     return {
         cpf,
-        setCpf,
+        setCpf: alterarCpf,
         email,
         setEmail,
         senha,

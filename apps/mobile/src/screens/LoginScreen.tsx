@@ -18,7 +18,7 @@ import { loginStyles as styles } from '../theme/loginStyles';
 
 export default function LoginScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-    const { email, setEmail, senha, setSenha, carregando, erro, handleLogin } = useLogin();
+    const { identificador, setIdentificador, senha, setSenha, carregando, erro, handleLogin } = useLogin();
 
     async function entrar() {
         if (await handleLogin()) {
@@ -44,18 +44,18 @@ export default function LoginScreen() {
                     </View>
     
                     <View style={styles.formulario}>
-                        <Text style={styles.label}>E-mail</Text>
+                        <Text style={styles.label}>CPF ou e-mail</Text>
                         <TextInput
                             style={styles.input}
-                            placeholder="Digite seu e-mail"
+                            placeholder="Digite seu CPF ou e-mail"
                             placeholderTextColor={colors.placeholder}
-                            value={email}
-                            onChangeText={setEmail}
-                            keyboardType="email-address"
+                            value={identificador}
+                            onChangeText={setIdentificador}
+                            keyboardType="default"
                             autoCapitalize="none"
                             autoCorrect={false}
-                            autoComplete="email"
-                            accessibilityLabel="E-mail"
+                            autoComplete="username"
+                            accessibilityLabel="CPF ou e-mail"
                             editable={!carregando}
                             returnKeyType="next"
                         />
@@ -107,7 +107,7 @@ export default function LoginScreen() {
                         </Pressable>
     
                         <Text style={styles.ajuda}>
-                            Use o e-mail e a senha informados no cadastro.
+                            Use seu CPF ou e-mail e a senha informados no cadastro.
                         </Text>
                     </View>
                 </ScrollView>

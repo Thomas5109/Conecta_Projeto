@@ -8,25 +8,20 @@ export async function authRoutes(app: FastifyInstance) {
             schema: {
                 body: {
                     type: 'object',
-                    required: ['email', 'senha'],
+                    required: ['senha'],
                     additionalProperties: false,
-
                     properties: {
-                        email: {
-                            type: 'string',
-                            minLength: 3,
-                            maxLength: 255,
-                        },
-
-                        senha: {
-                            type: 'string',
-                            minLength: 1,
-                            maxLength: 128,
-                        },
+                        email: { type: 'string', minLength: 3, maxLength: 255 },
+                        cpf: { type: 'string', minLength: 11, maxLength: 14 },
+                        senha: { type: 'string', minLength: 1, maxLength: 128 },
                     },
+                    oneOf: [
+                        { required: ['email'], not: { required: ['cpf'] } },
+                        { required: ['cpf'], not: { required: ['email'] } },
+                    ],
                 },
             },
         },
-        loginController
+        loginController,
     );
 }

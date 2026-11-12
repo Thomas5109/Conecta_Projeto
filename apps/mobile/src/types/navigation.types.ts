@@ -9,4 +9,5 @@ export type RootStackParamList = {
     Contatos: undefined;
     Dicas: undefined;
     Perfil: undefined;
+    Configuracoes: undefined;
 };
