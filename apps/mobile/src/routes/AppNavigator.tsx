@@ -3,6 +3,7 @@ import type { RootStackParamList } from '../types/navigation.types';
 import AlarmeScreen from '../screens/AlarmeScreen';
 import CadastroScreen from '../screens/CadastroScreen';
 import ContatosScreen from '../screens/ContatosScreen';
+import ConfiguracoesScreen from '../screens/ConfiguracoesScreen';
 import DicasScreen from '../screens/DicasScreen';
 import GlicoseScreen from '../screens/GlicoseScreen';
 import HistoricoScreen from '../screens/HistoricoScreen';
@@ -26,6 +27,7 @@ export default function AppNavigator() {
             <Stack.Screen name="Contatos" component={ContatosScreen} />
             <Stack.Screen name="Dicas" component={DicasScreen} />
             <Stack.Screen name="Perfil" component={PerfilScreen} />
+            <Stack.Screen name="Configuracoes" component={ConfiguracoesScreen} />
         </Stack.Navigator>
     );
 }

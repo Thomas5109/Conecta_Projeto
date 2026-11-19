@@ -1,8 +1,19 @@
+import type {
+    ContextoGlicose,
+    PerfilReferenciaGlicose,
+    ResultadoReferenciaGlicose,
+} from './glicose.types';
+
 export interface MedicaoLocal {
     id: string;
     tipo: 'Glicose' | 'Pressão';
     valor: string;
     data: string;
+    dataIso: string;
+    statusSincronizacao: 'PENDENTE' | 'ENVIADO';
+    contexto?: ContextoGlicose;
+    perfilReferencia?: PerfilReferenciaGlicose;
+    classificacao?: ResultadoReferenciaGlicose;
 }
 
 export interface LembreteLocal {

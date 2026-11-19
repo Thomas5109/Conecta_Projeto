@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
     ActivityIndicator,
     Alert,
+    Keyboard,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -27,6 +28,11 @@ const opcoesSexo: { valor: SexoCliente; rotulo: string }[] = [
 
 export default function CadastroScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+    let cpfInput: { focus: () => void } | null = null;
+    let emailInput: { focus: () => void } | null = null;
+    let senhaInput: { focus: () => void } | null = null;
+    let dddInput: { focus: () => void } | null = null;
+    let telefoneInput: { focus: () => void } | null = null;
     const {
         cpf,
         setCpf,
@@ -53,7 +59,7 @@ export default function CadastroScreen() {
         if (await handleCadastro()) {
             Alert.alert(
                 'Cadastro concluído',
-                'Sua conta foi criada. Entre com seu e-mail e senha.'
+                'Sua conta foi criada. Entre com seu CPF ou e-mail e senha.'
             );
             navigation.goBack();
         }
@@ -63,20 +69,22 @@ export default function CadastroScreen() {
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
             <KeyboardAvoidingView
                 style={{ flex: 1, backgroundColor: colors.background }}
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             >
                 <ScrollView
                     contentContainerStyle={styles.container}
                     keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="none"
+                    automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
                 >
                     <View style={styles.cabecalho}>
                         <Text style={styles.titulo}>Criar conta</Text>
                         <Text style={styles.subtitulo}>
-                            Preencha seus dados para se cadastrar.
+                            Os campos obrigatórios estão identificados ao lado do rótulo.
                         </Text>
                     </View>
 
-                    <Text style={styles.label}>Nome completo</Text>
+                    <Text style={styles.label}>Nome completo <Text style={styles.textoObrigatorio}>· Obrigatório</Text></Text>
                     <TextInput
                         style={styles.input}
                         value={nome}
@@ -84,22 +92,32 @@ export default function CadastroScreen() {
                         autoCapitalize="words"
                         editable={!carregando}
                         accessibilityLabel="Nome completo"
+                        accessibilityHint="Campo obrigatório. Pressione próximo para continuar."
+                        returnKeyType="next"
+                        blurOnSubmit={false}
+                        onSubmitEditing={() => cpfInput?.focus()}
                     />
 
-                    <Text style={styles.label}>CPF</Text>
+                    <Text style={styles.label}>CPF <Text style={styles.textoObrigatorio}>· Obrigatório</Text></Text>
                     <TextInput
+                        ref={(input) => { cpfInput = input; }}
                         style={styles.input}
                         placeholder="11 números"
                         placeholderTextColor={colors.placeholder}
                         value={cpf}
                         onChangeText={setCpf}
-                        keyboardType="numeric"
+                        keyboardType="number-pad"
                         editable={!carregando}
                         accessibilityLabel="CPF"
+                        accessibilityHint="Campo obrigatório. Digite os 11 números do CPF."
+                        returnKeyType="next"
+                        blurOnSubmit={false}
+                        onSubmitEditing={() => emailInput?.focus()}
                     />
 
-                    <Text style={styles.label}>E-mail</Text>
+                    <Text style={styles.label}>E-mail <Text style={styles.textoObrigatorio}>· Obrigatório</Text></Text>
                     <TextInput
+                        ref={(input) => { emailInput = input; }}
                         style={styles.input}
                         value={email}
                         onChangeText={setEmail}
@@ -108,10 +126,15 @@ export default function CadastroScreen() {
                         autoCorrect={false}
                         editable={!carregando}
                         accessibilityLabel="E-mail"
+                        accessibilityHint="Campo obrigatório."
+                        returnKeyType="next"
+                        blurOnSubmit={false}
+                        onSubmitEditing={() => senhaInput?.focus()}
                     />
 
-                    <Text style={styles.label}>Senha</Text>
+                    <Text style={styles.label}>Senha <Text style={styles.textoObrigatorio}>· Obrigatório</Text></Text>
                     <TextInput
+                        ref={(input) => { senhaInput = input; }}
                         style={styles.input}
                         value={senha}
                         onChangeText={setSenha}
@@ -119,13 +142,18 @@ export default function CadastroScreen() {
                         autoCapitalize="none"
                         editable={!carregando}
                         accessibilityLabel="Senha"
+                        accessibilityHint="Campo obrigatório."
+                        returnKeyType="next"
+                        blurOnSubmit={false}
+                        onSubmitEditing={() => dddInput?.focus()}
                     />
 
-                    <Text style={styles.label}>Telefone para contato</Text>
+                    <Text style={styles.label}>Telefone para contato <Text style={styles.textoObrigatorio}>· Obrigatório</Text></Text>
                     <View style={styles.telefoneLinha}>
                         <View style={styles.telefoneDdd}>
                             <Text style={styles.telefoneSubLabel}>DDD</Text>
                             <TextInput
+                                ref={(input) => { dddInput = input; }}
                                 style={[styles.input, styles.telefoneInput]}
                                 placeholder="65"
                                 placeholderTextColor={colors.placeholder}
@@ -136,11 +164,15 @@ export default function CadastroScreen() {
                                 editable={!carregando}
                                 accessibilityLabel="DDD do telefone"
                                 accessibilityHint="Digite os dois números do DDD"
+                                returnKeyType="next"
+                                blurOnSubmit={false}
+                                onSubmitEditing={() => telefoneInput?.focus()}
                             />
                         </View>
                         <View style={styles.telefoneNumero}>
                             <Text style={styles.telefoneSubLabel}>Número do telefone</Text>
                             <TextInput
+                                ref={(input) => { telefoneInput = input; }}
                                 style={[styles.input, styles.telefoneInput]}
                                 placeholder="9 1234-5678"
                                 placeholderTextColor={colors.placeholder}
@@ -151,6 +183,8 @@ export default function CadastroScreen() {
                                 editable={!carregando}
                                 accessibilityLabel="Número do telefone sem o DDD"
                                 accessibilityHint="Digite o número sem incluir o DDD"
+                                returnKeyType="done"
+                                onSubmitEditing={() => Keyboard.dismiss()}
                             />
                         </View>
                     </View>
@@ -158,7 +192,7 @@ export default function CadastroScreen() {
                         Exemplo: DDD 65 e número 9 1234-5678.
                     </Text>
 
-                    <Text style={styles.label}>Data de nascimento</Text>
+                    <Text style={styles.label}>Data de nascimento <Text style={styles.textoObrigatorio}>· Obrigatório</Text></Text>
                     <CampoDataHora
                         mode="date"
                         value={dataDeNascimento}
@@ -170,7 +204,7 @@ export default function CadastroScreen() {
                         accessibilityLabel="Data de nascimento"
                     />
 
-                    <Text style={styles.label}>Sexo</Text>
+                    <Text style={styles.label}>Sexo <Text style={styles.textoObrigatorio}>· Obrigatório</Text></Text>
                     <View style={styles.opcoesSexo}>
                         {opcoesSexo.map((opcao) => (
                             <Pressable

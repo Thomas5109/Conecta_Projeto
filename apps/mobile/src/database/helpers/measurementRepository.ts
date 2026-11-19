@@ -3,22 +3,30 @@ import database from '../database';
 import Measurement from '../models/MeasurementModel';
 import { construirFhirGlicose, construirFhirPressao } from './fhirBuilder';
 import type { MedicaoLocal } from '../../types/localData.types';
+import type {
+    ContextoGlicose,
+    PerfilReferenciaGlicose,
+    ResultadoReferenciaGlicose,
+} from '../../types/glicose.types';
+import { formatarDataHoraCurta } from '../../utils/dateTime';
 
 const collection = database.get<Measurement>('measurements');
 
-/**
- * Salva uma medição de glicose no banco local com payload FHIR.
- */
 export async function salvarMedicaoGlicose(
     valorMgDl: number,
     idCliente: string,
+    contexto: ContextoGlicose,
+    perfilReferencia: PerfilReferenciaGlicose,
+    classificacao: ResultadoReferenciaGlicose,
 ): Promise<Measurement> {
     const agora = new Date();
-
     const fhir = construirFhirGlicose({
         valorMgDl,
         idPaciente: idCliente,
         dataHora: agora,
+        contexto,
+        perfilReferencia,
+        classificacao,
     });
 
     return database.write(async () => {
@@ -33,16 +41,12 @@ export async function salvarMedicaoGlicose(
     });
 }
 
-/**
- * Salva uma medição de pressão arterial no banco local com payload FHIR.
- */
 export async function salvarMedicaoPressao(
     sistolica: number,
     diastolica: number,
     idCliente: string,
 ): Promise<Measurement> {
     const agora = new Date();
-
     const fhir = construirFhirPressao({
         sistolica,
         diastolica,
@@ -62,63 +66,115 @@ export async function salvarMedicaoPressao(
     });
 }
 
-/**
- * Lista todas as medições convertidas para o formato MedicaoLocal,
- * ordenadas por data_hora decrescente.
- */
 export async function listarTodasMedicoes(): Promise<MedicaoLocal[]> {
-    const registros = await collection
-        .query(Q.sortBy('data_hora', Q.desc))
-        .fetch();
+    const registros = await collection.query(Q.sortBy('data_hora', Q.desc)).fetch();
 
     return registros.map((registro) => {
         const fhir = registro.parsedFhir;
         let tipo: MedicaoLocal['tipo'];
         let valor: string;
         let data: string;
+        let contexto: MedicaoLocal['contexto'] = undefined;
+        let perfilReferencia: MedicaoLocal['perfilReferencia'] = undefined;
+        let classificacao: MedicaoLocal['classificacao'] = undefined;
 
         if (registro.tipoMedicaoId === 'glicose') {
             tipo = 'Glicose';
-            const vq = (fhir as any)?.valueQuantity;
-            valor = vq ? `${vq.value} mg/dL` : '-- mg/dL';
+            const quantidade = (fhir as any)?.valueQuantity;
+            valor = quantidade ? String(quantidade.value) + ' mg/dL' : '-- mg/dL';
+            const extensoes = (fhir as any)?.extension ?? [];
+            contexto = extensoes.find(
+                (ext: { url?: string }) => ext.url === 'http://seu-app.com/fhir/contexto-medicao',
+            )?.valueString;
+            perfilReferencia = extensoes.find(
+                (ext: { url?: string }) => ext.url === 'http://seu-app.com/fhir/perfil-referencia-glicose',
+            )?.valueString;
+            const status = extensoes.find(
+                (ext: { url?: string }) => ext.url === 'http://seu-app.com/fhir/classificacao-referencia-glicose',
+            )?.valueString;
+            const faixa = extensoes.find(
+                (ext: { url?: string }) => ext.url === 'http://seu-app.com/fhir/faixa-referencia-glicose',
+            )?.valueString;
+            if (status && faixa) {
+                const rotulos: Record<string, string> = {
+                    DENTRO_DA_META: 'Dentro da meta',
+                    ABAIXO_DA_META: 'Abaixo da meta',
+                    ACIMA_DA_META: 'Acima da meta',
+                    SEM_FAIXA: 'Sem faixa de referência',
+                };
+                classificacao = {
+                    status,
+                    rotulo: rotulos[status] ?? 'Sem classificação',
+                    faixa,
+                };
+            }
         } else {
             tipo = 'Pressão';
             const componentes = (fhir as any)?.component;
             if (Array.isArray(componentes) && componentes.length >= 2) {
-                const sys = componentes[0]?.valueQuantity?.value ?? '--';
-                const dia = componentes[1]?.valueQuantity?.value ?? '--';
-                valor = `${sys} / ${dia} mmHg`;
+                const sistolica = componentes[0]?.valueQuantity?.value ?? '--';
+                const diastolica = componentes[1]?.valueQuantity?.value ?? '--';
+                valor = String(sistolica) + ' / ' + String(diastolica) + ' mmHg';
             } else {
                 valor = '-- / -- mmHg';
             }
         }
 
-        // Formata a data a partir do effectiveDateTime do FHIR ou do created_at
         const effectiveDateTime = (fhir as any)?.effectiveDateTime;
-        if (effectiveDateTime) {
-            data = new Date(effectiveDateTime).toLocaleString('pt-BR');
-        } else {
-            data = registro.createdAt
-                ? registro.createdAt.toLocaleString('pt-BR')
-                : '';
-        }
+        data = effectiveDateTime
+            ? formatarDataHoraCurta(effectiveDateTime)
+            : formatarDataHoraCurta(registro.dataHora ?? registro.createdAt ?? new Date());
 
-        return { id: registro.id, tipo, valor, data };
+        const dataIso = effectiveDateTime ?? registro.dataHora?.toISOString() ?? '';
+        const statusSincronizacao = registro.statusSincronizacao === 'ENVIADO'
+            ? 'ENVIADO'
+            : 'PENDENTE';
+        return { id: registro.id, tipo, valor, data, dataIso, statusSincronizacao, contexto, perfilReferencia, classificacao };
     });
 }
 
-/**
- * Lista as medições com sync_status = 'PENDENTE'.
- */
-export async function listarPendentes(): Promise<Measurement[]> {
-    return collection
-        .query(Q.where('sync_status', 'PENDENTE'))
-        .fetch();
+export type DadosEdicaoMedicao =
+    | { tipo: 'Glicose'; valorMgDl: number; contexto: ContextoGlicose; perfilReferencia: PerfilReferenciaGlicose; classificacao: ResultadoReferenciaGlicose }
+    | { tipo: 'Pressão'; sistolica: number; diastolica: number };
+
+export async function atualizarMedicao(id: string, dados: DadosEdicaoMedicao): Promise<void> {
+    await database.write(async () => {
+        const registro = await collection.find(id);
+        const fhir = dados.tipo === 'Glicose'
+            ? construirFhirGlicose({
+                  valorMgDl: dados.valorMgDl,
+                  idPaciente: registro.clienteId,
+                  dataHora: registro.dataHora,
+                  contexto: dados.contexto,
+                  perfilReferencia: dados.perfilReferencia,
+                  classificacao: dados.classificacao,
+              })
+            : construirFhirPressao({
+                  sistolica: dados.sistolica,
+                  diastolica: dados.diastolica,
+                  idPaciente: registro.clienteId,
+                  dataHora: registro.dataHora,
+              });
+
+        await registro.update((medicao) => {
+            medicao.tipoMedicaoId = dados.tipo === 'Glicose' ? 'glicose' : 'pressao';
+            medicao.fhirPayload = JSON.stringify(fhir);
+            medicao.statusSincronizacao = 'PENDENTE';
+        });
+    });
 }
 
-/**
- * Marca uma medição como enviada (sync_status = 'ENVIADO').
- */
+export async function excluirMedicao(id: string): Promise<void> {
+    await database.write(async () => {
+        const registro = await collection.find(id);
+        await registro.markAsDeleted();
+    });
+}
+
+export async function listarPendentes(): Promise<Measurement[]> {
+    return collection.query(Q.where('sync_status', 'PENDENTE')).fetch();
+}
+
 export async function marcarComoEnviado(id: string): Promise<void> {
     await database.write(async () => {
         const registro = await collection.find(id);

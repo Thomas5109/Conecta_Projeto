@@ -14,6 +14,7 @@ const atalhos = [
     { tela: 'Alarme', icone: '⏰', titulo: 'Lembretes', descricao: 'Organizar seus lembretes locais' },
     { tela: 'Contatos', icone: '📞', titulo: 'Contatos de emergência', descricao: 'Guardar e ligar para contatos úteis' },
     { tela: 'Dicas', icone: '💡', titulo: 'Dicas de cuidado', descricao: 'Consultar recomendações gerais' },
+    { tela: 'Configuracoes', icone: '⚙️', titulo: 'Configurações', descricao: 'Definir seu perfil de referência' },
 ] as const;
 
 export default function HomeScreen() {
@@ -39,15 +40,15 @@ export default function HomeScreen() {
             {atalhos.map((atalho) => (
                 <Pressable
                     key={atalho.tela}
-                    style={styles.cartao}
+                    style={[styles.cartao, (atalho.tela === 'Glicose' || atalho.tela === 'Pressao') && styles.cartaoAcaoPrincipal]}
                     onPress={() => navigation.navigate(atalho.tela)}
                     accessibilityRole="button"
                 >
                     <View style={styles.linha}>
                         <Text style={{ fontSize: 28 }}>{atalho.icone}</Text>
                         <View style={{ flex: 1 }}>
-                            <Text style={styles.tituloCartao}>{atalho.titulo}</Text>
-                            <Text style={styles.texto}>{atalho.descricao}</Text>
+                            <Text style={[styles.tituloCartao, (atalho.tela === 'Glicose' || atalho.tela === 'Pressao') && styles.tituloAcaoPrincipal]}>{atalho.titulo}</Text>
+                            <Text style={[styles.texto, (atalho.tela === 'Glicose' || atalho.tela === 'Pressao') && styles.textoAcaoPrincipal]}>{atalho.descricao}</Text>
                         </View>
                     </View>
                 </Pressable>
