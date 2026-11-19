@@ -1,0 +1,10 @@
+# Dependências e caches pesados
+**/node_modules/
+**/.expo/
+**/dist/
+**/build/
+
+# Ignora o backend e pastas de agentes/symlinks na build mobile
+apps/api/
+**/.agents/
+**/.claude/
