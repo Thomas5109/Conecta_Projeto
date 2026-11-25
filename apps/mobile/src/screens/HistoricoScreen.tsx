@@ -2,14 +2,19 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import MainScreenLayout from '../components/MainScreenLayout';
 import PerfilReferenciaCard from '../components/PerfilReferenciaCard';
-import { atualizarMedicao, excluirMedicao } from '../database/helpers/measurementRepository';
-import { listarMedicoes, lerPerfilReferenciaGlicose } from '../services/storage/localData';
+import AlertaRiscoModal from '../components/AlertaRiscoModal';
+import {
+    atualizarMedicao,
+    excluirMedicao,
+    observarTodasMedicoes,
+} from '../database/helpers/measurementRepository';
+import { lerPerfilReferenciaGlicose } from '../services/storage/localData';
+import { syncData } from '../services/sync';
 import { localDataStyles as styles } from '../theme/localDataStyles';
 import { colors } from '../theme/colors';
 import type { MedicaoLocal } from '../types/localData.types';
 import type { ContextoGlicose, PerfilReferenciaGlicose } from '../types/glicose.types';
-import { useNavigation } from '@react-navigation/native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types/navigation.types';
 import { CONTEXTOS_GLICOSE, PERFIS_REFERENCIA_GLICOSE, classificarGlicose } from '../utils/glicoseReference';
@@ -29,22 +34,28 @@ export default function HistoricoScreen() {
     const [rascunho, setRascunho] = useState<RascunhoEdicao | null>(null);
     const [salvando, setSalvando] = useState(false);
 
-    const carregar = useCallback(async () => {
-        try {
-            setMedicoes(await listarMedicoes());
-            setErro('');
-        } catch {
-            setErro('Não foi possível carregar o histórico.');
-        }
-    }, []);
+    const [avisoRisco, setAvisoRisco] = useState({
+        visivel: false,
+        tituloMedicao: '',
+        valorMedicao: '',
+        motivoRisco: '',
+        sincronizado: false,
+    });
 
-    useEffect(() => { void carregar(); }, [carregar]);
+    useEffect(() => {
+        const subscription = observarTodasMedicoes().subscribe((listaAtualizada) => {
+            setMedicoes(listaAtualizada);
+            setErro('');
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
 
     useFocusEffect(useCallback(() => {
         if (!edicao || edicao.tipo !== 'Glicose') return;
         let ativo = true;
         void lerPerfilReferenciaGlicose().then((perfil) => {
-            if (ativo) setRascunho((atual) => atual ? { ...atual, perfil } : atual);
+            if (ativo) setRascunho((atual) => (atual ? { ...atual, perfil } : atual));
         });
         return () => { ativo = false; };
     }, [edicao]));
@@ -66,7 +77,13 @@ export default function HistoricoScreen() {
         if (!edicao || !rascunho) return;
         setErro('');
         setSalvando(true);
+
         try {
+            let isCritico = false;
+            let tituloMedicao = '';
+            let valorMedicao = '';
+            let motivoRisco = '';
+
             if (edicao.tipo === 'Glicose') {
                 if (!rascunho.perfil) {
                     setErro('Defina o perfil de referência em Configurações para classificar esta medição.');
@@ -77,24 +94,71 @@ export default function HistoricoScreen() {
                     setErro('Informe um valor de glicose válido.');
                     return;
                 }
+
+                const classificacao = classificarGlicose(valorMgDl, rascunho.perfil, rascunho.contexto);
+                isCritico = classificacao.status === 'ACIMA_DA_META' || classificacao.status === 'ABAIXO_DA_META';
+                tituloMedicao = 'Glicemia fora da meta de referência';
+                valorMedicao = `${valorMgDl} mg/dL`;
+                motivoRisco = `${classificacao.rotulo} (${classificacao.faixa})`;
+
                 await atualizarMedicao(edicao.id, {
-                    tipo: 'Glicose', valorMgDl, contexto: rascunho.contexto,
+                    tipo: 'Glicose',
+                    valorMgDl,
+                    contexto: rascunho.contexto,
                     perfilReferencia: rascunho.perfil,
-                    classificacao: classificarGlicose(valorMgDl, rascunho.perfil, rascunho.contexto),
+                    classificacao,
+                    isCritico,
                 });
             } else {
-                const sistolica = Number(rascunho.valor.replace(',', '.'));
-                const diastolica = Number(rascunho.pressaoDiastolica.replace(',', '.'));
+                let sistolica = Number(rascunho.valor.replace(',', '.'));
+                let diastolica = Number(rascunho.pressaoDiastolica.replace(',', '.'));
                 if (!Number.isFinite(sistolica) || !Number.isFinite(diastolica) || sistolica <= 0 || diastolica <= 0) {
                     setErro('Informe os valores sistólico e diastólico, separados por /.');
                     return;
                 }
-                await atualizarMedicao(edicao.id, { tipo: 'Pressão', sistolica, diastolica });
+
+                if (sistolica < 30) sistolica *= 10;
+                if (diastolica < 30) diastolica *= 10;
+
+                isCritico = sistolica >= 180 || diastolica >= 120;
+                tituloMedicao = 'Pressão arterial em nível crítico';
+                valorMedicao = `${sistolica}/${diastolica} mmHg`;
+                motivoRisco = 'Crise hipertensiva (pressão muito elevada)';
+
+                await atualizarMedicao(edicao.id, {
+                    tipo: 'Pressão',
+                    sistolica,
+                    diastolica,
+                    isCritico,
+                });
             }
+
+            let sincronizado = false;
+            try {
+                sincronizado = await syncData();
+            } catch (err) {
+                console.log('Sync pendente (edição):', err);
+            }
+
             setEdicao(null);
             setRascunho(null);
-            await carregar();
-            Alert.alert('Medição atualizada', 'As alterações foram salvas neste aparelho.');
+
+            if (isCritico) {
+                setAvisoRisco({
+                    visivel: true,
+                    tituloMedicao,
+                    valorMedicao,
+                    motivoRisco,
+                    sincronizado,
+                });
+            } else {
+                Alert.alert(
+                    'Medição atualizada',
+                    sincronizado
+                        ? 'As alterações foram salvas e sincronizadas com a nuvem.'
+                        : 'As alterações foram salvas neste aparelho e aguardam sincronização.',
+                );
+            }
         } catch {
             setErro('Não foi possível atualizar a medição.');
         } finally {
@@ -105,11 +169,17 @@ export default function HistoricoScreen() {
     function confirmarExclusao(medicao: MedicaoLocal) {
         Alert.alert('Excluir medição?', 'Este registro será removido do histórico deste aparelho.', [
             { text: 'Cancelar', style: 'cancel' },
-            { text: 'Excluir', style: 'destructive', onPress: () => {
-                void excluirMedicao(medicao.id)
-                    .then(async () => { await carregar(); Alert.alert('Medição excluída', 'O registro foi removido deste aparelho.'); })
-                    .catch(() => setErro('Não foi possível excluir a medição.'));
-            } },
+            {
+                text: 'Excluir',
+                style: 'destructive',
+                onPress: () => {
+                    void excluirMedicao(medicao.id)
+                        .then(() => {
+                            Alert.alert('Medição excluída', 'O registro foi removido deste aparelho.');
+                        })
+                        .catch(() => setErro('Não foi possível excluir a medição.'));
+                },
+            },
         ]);
     }
 
@@ -147,6 +217,7 @@ export default function HistoricoScreen() {
                     </View>
                 );
             })}
+
             <Modal visible={edicao !== null} transparent animationType="slide" onRequestClose={() => setEdicao(null)}>
                 <View style={{ flex: 1, justifyContent: 'center', backgroundColor: '#0008', padding: 18 }}>
                     <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: '92%', backgroundColor: colors.background, borderRadius: 16, padding: 20 }}>
@@ -173,6 +244,16 @@ export default function HistoricoScreen() {
                     </ScrollView>
                 </View>
             </Modal>
+
+            <AlertaRiscoModal
+                visivel={avisoRisco.visivel}
+                tituloMedicao={avisoRisco.tituloMedicao}
+                valorMedicao={avisoRisco.valorMedicao}
+                motivoRisco={avisoRisco.motivoRisco}
+                sincronizado={avisoRisco.sincronizado}
+                onFechar={() => setAvisoRisco((prev) => ({ ...prev, visivel: false }))}
+                onVerHistorico={() => setAvisoRisco((prev) => ({ ...prev, visivel: false }))}
+            />
         </MainScreenLayout>
     );
 }

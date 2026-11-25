@@ -13,6 +13,106 @@ import { syncData } from '../../services/sync';
 
 const collection = database.get<Measurement>('measurements');
 
+function mapearRegistroParaMedicaoLocal(registro: Measurement): MedicaoLocal {
+    const fhir = registro.parsedFhir;
+    let tipo: MedicaoLocal['tipo'];
+    let valor: string;
+    let data: string;
+    let contexto: MedicaoLocal['contexto'] = undefined;
+    let perfilReferencia: MedicaoLocal['perfilReferencia'] = undefined;
+    let classificacao: MedicaoLocal['classificacao'] = undefined;
+
+    const isGlicose =
+        registro.tipoMedicaoId === 'glicose' ||
+        registro.tipoMedicaoId === '1' ||
+        (fhir as any)?.code?.coding?.[0]?.code === '41653-7';
+
+    if (isGlicose) {
+        tipo = 'Glicose';
+        const quantidade = (fhir as any)?.valueQuantity;
+        valor = quantidade ? String(quantidade.value) + ' mg/dL' : '-- mg/dL';
+        const extensoes = (fhir as any)?.extension ?? [];
+        contexto = extensoes.find(
+            (ext: { url?: string }) => ext.url === 'http://seu-app.com/fhir/contexto-medicao',
+        )?.valueString;
+        perfilReferencia = extensoes.find(
+            (ext: { url?: string }) => ext.url === 'http://seu-app.com/fhir/perfil-referencia-glicose',
+        )?.valueString;
+        const status = extensoes.find(
+            (ext: { url?: string }) => ext.url === 'http://seu-app.com/fhir/classificacao-referencia-glicose',
+        )?.valueString;
+        const faixa = extensoes.find(
+            (ext: { url?: string }) => ext.url === 'http://seu-app.com/fhir/faixa-referencia-glicose',
+        )?.valueString;
+        if (status && faixa) {
+            const rotulos: Record<string, string> = {
+                DENTRO_DA_META: 'Dentro da meta',
+                ABAIXO_DA_META: 'Abaixo da meta',
+                ACIMA_DA_META: 'Acima da meta',
+                SEM_FAIXA: 'Sem faixa de referência',
+            };
+            classificacao = {
+                status,
+                rotulo: rotulos[status] ?? 'Sem classificação',
+                faixa,
+            };
+        }
+    } else {
+        tipo = 'Pressão';
+        const componentes = (fhir as any)?.component;
+        if (Array.isArray(componentes) && componentes.length >= 2) {
+            const sistolica = componentes[0]?.valueQuantity?.value ?? '--';
+            const diastolica = componentes[1]?.valueQuantity?.value ?? '--';
+            valor = String(sistolica) + ' / ' + String(diastolica) + ' mmHg';
+        } else {
+            valor = '-- / -- mmHg';
+        }
+    }
+
+    const effectiveDateTime = (fhir as any)?.effectiveDateTime;
+    data = effectiveDateTime
+        ? formatarDataHoraCurta(effectiveDateTime)
+        : formatarDataHoraCurta(registro.dataHora ?? registro.createdAt ?? new Date());
+
+    const dataIso = effectiveDateTime ?? registro.dataHora?.toISOString() ?? '';
+    const statusSincronizacao =
+        registro.syncStatus === 'synced' || registro.statusSincronizacao === 'ENVIADO'
+            ? 'ENVIADO'
+            : 'PENDENTE';
+
+    return {
+        id: registro.id,
+        tipo,
+        valor,
+        data,
+        dataIso,
+        statusSincronizacao,
+        contexto,
+        perfilReferencia,
+        classificacao,
+    };
+}
+
+export function observarTodasMedicoes() {
+    const observable = collection
+        .query(Q.sortBy('data_hora', Q.desc))
+        .observeWithColumns([
+            'fhir_payload',
+            'is_critico',
+            'data_hora',
+            'sync_status',
+            'tipo_medicao_id',
+        ]);
+
+    return {
+        subscribe(onNext: (medicoes: MedicaoLocal[]) => void) {
+            return observable.subscribe((registros) => {
+                onNext(registros.map(mapearRegistroParaMedicaoLocal));
+            });
+        },
+    };
+}
+
 export async function salvarMedicaoGlicose(
     valorMgDl: number,
     idCliente: string,
@@ -71,81 +171,24 @@ export async function salvarMedicaoPressao(
 
 export async function listarTodasMedicoes(): Promise<MedicaoLocal[]> {
     const registros = await collection.query(Q.sortBy('data_hora', Q.desc)).fetch();
-
-    return registros.map((registro) => {
-        const fhir = registro.parsedFhir;
-        let tipo: MedicaoLocal['tipo'];
-        let valor: string;
-        let data: string;
-        let contexto: MedicaoLocal['contexto'] = undefined;
-        let perfilReferencia: MedicaoLocal['perfilReferencia'] = undefined;
-        let classificacao: MedicaoLocal['classificacao'] = undefined;
-
-        const isGlicose =
-            registro.tipoMedicaoId === 'glicose' ||
-            registro.tipoMedicaoId === '1' ||
-            (fhir as any)?.code?.coding?.[0]?.code === '41653-7';
-
-        if (isGlicose) {
-            tipo = 'Glicose';
-            const quantidade = (fhir as any)?.valueQuantity;
-            valor = quantidade ? String(quantidade.value) + ' mg/dL' : '-- mg/dL';
-            const extensoes = (fhir as any)?.extension ?? [];
-            contexto = extensoes.find(
-                (ext: { url?: string }) => ext.url === 'http://seu-app.com/fhir/contexto-medicao',
-            )?.valueString;
-            perfilReferencia = extensoes.find(
-                (ext: { url?: string }) => ext.url === 'http://seu-app.com/fhir/perfil-referencia-glicose',
-            )?.valueString;
-            const status = extensoes.find(
-                (ext: { url?: string }) => ext.url === 'http://seu-app.com/fhir/classificacao-referencia-glicose',
-            )?.valueString;
-            const faixa = extensoes.find(
-                (ext: { url?: string }) => ext.url === 'http://seu-app.com/fhir/faixa-referencia-glicose',
-            )?.valueString;
-            if (status && faixa) {
-                const rotulos: Record<string, string> = {
-                    DENTRO_DA_META: 'Dentro da meta',
-                    ABAIXO_DA_META: 'Abaixo da meta',
-                    ACIMA_DA_META: 'Acima da meta',
-                    SEM_FAIXA: 'Sem faixa de referência',
-                };
-                classificacao = {
-                    status,
-                    rotulo: rotulos[status] ?? 'Sem classificação',
-                    faixa,
-                };
-            }
-        } else {
-            tipo = 'Pressão';
-            const componentes = (fhir as any)?.component;
-            if (Array.isArray(componentes) && componentes.length >= 2) {
-                const sistolica = componentes[0]?.valueQuantity?.value ?? '--';
-                const diastolica = componentes[1]?.valueQuantity?.value ?? '--';
-                valor = String(sistolica) + ' / ' + String(diastolica) + ' mmHg';
-            } else {
-                valor = '-- / -- mmHg';
-            }
-        }
-
-        const effectiveDateTime = (fhir as any)?.effectiveDateTime;
-        data = effectiveDateTime
-            ? formatarDataHoraCurta(effectiveDateTime)
-            : formatarDataHoraCurta(registro.dataHora ?? registro.createdAt ?? new Date());
-
-        const dataIso = effectiveDateTime ?? registro.dataHora?.toISOString() ?? '';
-        const statusSincronizacao =
-            registro.syncStatus === 'synced' || registro.statusSincronizacao === 'ENVIADO'
-                ? 'ENVIADO'
-                : 'PENDENTE';
-
-        return { id: registro.id, tipo, valor, data, dataIso, statusSincronizacao, contexto, perfilReferencia, classificacao };
-    });
+    return registros.map(mapearRegistroParaMedicaoLocal);
 }
 
 export type DadosEdicaoMedicao =
-    | { tipo: 'Glicose'; valorMgDl: number; contexto: ContextoGlicose; perfilReferencia: PerfilReferenciaGlicose; classificacao: ResultadoReferenciaGlicose }
-    | { tipo: 'Pressão'; sistolica: number; diastolica: number };
+    | {
+          tipo: 'Glicose';
+          valorMgDl: number;
+          contexto: ContextoGlicose;
+          perfilReferencia: PerfilReferenciaGlicose;
+          classificacao: ResultadoReferenciaGlicose;
+          isCritico?: boolean;
+      }
+    | {
+          tipo: 'Pressão';
+          sistolica: number;
+          diastolica: number;
+          isCritico?: boolean;
+      };
 
 export async function atualizarMedicao(id: string, dados: DadosEdicaoMedicao): Promise<void> {
     await database.write(async () => {
@@ -169,6 +212,7 @@ export async function atualizarMedicao(id: string, dados: DadosEdicaoMedicao): P
         await registro.update((medicao) => {
             medicao.tipoMedicaoId = dados.tipo === 'Glicose' ? 'glicose' : 'pressao';
             medicao.fhirPayload = JSON.stringify(fhir);
+            medicao.isCritico = Boolean(dados.isCritico);
             medicao.statusSincronizacao = 'PENDENTE';
         });
     });
