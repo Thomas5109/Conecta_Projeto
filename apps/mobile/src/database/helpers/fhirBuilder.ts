@@ -138,7 +138,7 @@ export function construirFhirPressao(dados: DadosPressao): object {
                 },
                 valueQuantity: {
                     value: dados.sistolica,
-                    unit: 'mmHg',
+                    unit: 'mm[Hg]',
                     system: 'http://unitsofmeasure.org',
                     code: 'mm[Hg]',
                 },
@@ -155,7 +155,7 @@ export function construirFhirPressao(dados: DadosPressao): object {
                 },
                 valueQuantity: {
                     value: dados.diastolica,
-                    unit: 'mmHg',
+                    unit: 'mm[Hg]',
                     system: 'http://unitsofmeasure.org',
                     code: 'mm[Hg]',
                 },

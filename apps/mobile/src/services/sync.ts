@@ -41,16 +41,47 @@ function mapearServidorParaLocal(record: any) {
   };
 }
 
+function normalizarFhirPressao(fhir: any) {
+  if (!fhir || typeof fhir !== 'object') return fhir;
+
+  if (fhir.valueQuantity) {
+    fhir.valueQuantity.unit = 'mm[Hg]';
+    fhir.valueQuantity.code = 'mm[Hg]';
+  }
+
+  if (Array.isArray(fhir.component)) {
+    fhir.component = fhir.component.map((comp: any) =>
+      comp?.valueQuantity
+        ? {
+            ...comp,
+            valueQuantity: {
+              ...comp.valueQuantity,
+              unit: 'mm[Hg]',
+              code: 'mm[Hg]',
+            },
+          }
+        : comp,
+    );
+  }
+
+  return fhir;
+}
+
 // Converte registro cru do WatermelonDB (measurements) -> Payload esperado pela API (evento_medicao)
 function mapearLocalParaServidor(raw: any) {
+  const payload =
+    typeof raw.fhir_payload === 'string'
+      ? JSON.parse(raw.fhir_payload)
+      : JSON.parse(JSON.stringify(raw.fhir_payload));
+
+  const fhirNormalizado =
+    raw.tipo_medicao_id === 'pressao' ? normalizarFhirPressao(payload) : payload;
+
   return {
     id_evento_medicao: raw.id,
     id_tipo_medicao: raw.tipo_medicao_id,
     data_hora_do_evento: new Date(raw.data_hora).toISOString(),
-    fhir_observation_payload:
-      typeof raw.fhir_payload === 'string'
-        ? JSON.parse(raw.fhir_payload)
-        : raw.fhir_payload,
+    fhir_observation_payload: fhirNormalizado,
   };
 }
 
