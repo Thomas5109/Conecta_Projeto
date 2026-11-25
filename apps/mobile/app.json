@@ -1,12 +1,17 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "AlertaSaude",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "expo": {
+      "name": "Conecta",
+      "slug": "mobile",
+      "android": {
+        "package": "com.thomas5109steam.mobile"
+      },
       "platforms": [
         "ios",
         "android",
