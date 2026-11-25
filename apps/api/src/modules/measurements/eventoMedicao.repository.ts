@@ -5,21 +5,20 @@ import { Prisma, EventoMedicao } from '@prisma/client';
 export type WatermelonPushChanges<T> = {
   created: T[];
   updated: T[];
-  deleted: string[]; // O Watermelon envia apenas um array de IDs para os deletados
+  deleted: string[];
 };
 
 export class EventoMedicaoRepository {
-  
   /**
-   * PULL: Busca todos os registros alterados desde a última sincronização.
-   * Filtramos também pelo cliente, garantindo que o usuário baixe apenas os próprios dados.
+   * PULL: Busca todos os registros alterados desde a última sincronização,
+   * isolando estritamente pelo cliente autenticado no JWT.
    */
   async getMeasurementsSince(lastPulledAt: Date, idCliente: string): Promise<EventoMedicao[]> {
     return await prisma.eventoMedicao.findMany({
       where: {
         id_cliente: idCliente,
         updated_at: {
-          gt: lastPulledAt, // greater than (maior que) o timestamp recebido
+          gt: lastPulledAt,
         },
       },
     });
@@ -29,68 +28,66 @@ export class EventoMedicaoRepository {
    * PUSH: Processa as alterações locais do celular aplicando a regra "Tudo ou Nada".
    */
   async processPushChanges(
-    changes: WatermelonPushChanges<Prisma.EventoMedicaoUncheckedCreateInput>, 
-    idCliente: string
+    changes: WatermelonPushChanges<Prisma.EventoMedicaoUncheckedCreateInput>,
+    idCliente: string,
   ): Promise<void> {
     const { created, updated, deleted } = changes;
-    
-    // Array que armazenará todas as operações para a transação
     const operacoes = [];
 
-    // 1. CREATE: Adiciona a operação de criação em lote (mais performático)
+    // 1. CREATE: Filtra apenas as colunas válidas do Postgres e força o id_cliente do JWT
     if (created.length > 0) {
-      // Garantimos que todos os registros criados pertençam ao cliente da requisição
-      const recordsToCreate = created.map(record => ({
-        ...record,
-        id_cliente: idCliente 
+      const recordsToCreate = created.map((record) => ({
+        id_evento_medicao: record.id_evento_medicao ?? (record as any).id,
+        id_cliente: idCliente,
+        id_tipo_medicao: record.id_tipo_medicao,
+        data_hora_do_evento: new Date(record.data_hora_do_evento),
+        fhir_observation_payload: record.fhir_observation_payload,
       }));
 
       operacoes.push(
         prisma.eventoMedicao.createMany({
           data: recordsToCreate,
-          skipDuplicates: true, // Evita erro se o celular tentar reenviar algo já criado
-        })
+          skipDuplicates: true,
+        }),
       );
     }
 
-    // 2. UPDATE: Adiciona um update individual para cada registro modificado
+    // 2. UPDATE: Exige que o registro pertença ao id_cliente autenticado
     if (updated.length > 0) {
       for (const record of updated) {
+        const idEvento = record.id_evento_medicao ?? (record as any).id;
+
         operacoes.push(
-          prisma.eventoMedicao.update({
-            where: { 
-              id_evento_medicao: record.id_evento_medicao 
+          prisma.eventoMedicao.updateMany({
+            where: {
+              id_evento_medicao: idEvento,
+              id_cliente: idCliente,
             },
             data: {
-              // Os dados vêm do celular, mas forçamos a proteção do id do cliente
               id_tipo_medicao: record.id_tipo_medicao,
-              data_hora_do_evento: record.data_hora_do_evento,
+              data_hora_do_evento: new Date(record.data_hora_do_evento),
               fhir_observation_payload: record.fhir_observation_payload,
-              // O próprio Prisma vai gerenciar o updated_at no banco
-            }
-          })
-        );
-      }
-    }
-
-    // 3. DELETE (Soft Delete): Adiciona a operação para marcar como deletado
-    if (deleted.length > 0) {
-      for (const id_evento of deleted) {
-        operacoes.push(
-          prisma.eventoMedicao.update({
-            where: { 
-              id_evento_medicao: id_evento 
             },
-            data: { 
-              deleted_at: new Date() // Soft delete ativado
-            }
-          })
+          }),
         );
       }
     }
 
-    // Executa todas as operações preparadas em uma única transação no PostgreSQL
-    // Se qualquer uma falhar, o banco desfaz (rollback) as anteriores automaticamente.
+    // 3. DELETE (Soft Delete): Marca como deletado em lote apenas registros do próprio cliente
+    if (deleted.length > 0) {
+      operacoes.push(
+        prisma.eventoMedicao.updateMany({
+          where: {
+            id_evento_medicao: { in: deleted },
+            id_cliente: idCliente,
+          },
+          data: {
+            deleted_at: new Date(),
+          },
+        }),
+      );
+    }
+
     if (operacoes.length > 0) {
       await prisma.$transaction(operacoes);
     }

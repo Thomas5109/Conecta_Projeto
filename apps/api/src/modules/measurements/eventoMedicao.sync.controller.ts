@@ -13,17 +13,17 @@ export class SyncController {
   async pull(request: FastifyRequest, reply: FastifyReply) {
     try {
       // 1. Schema Zod para extrair e converter o parâmetro da URL (Query String)
-      // O coerce.number() transforma a string da URL em número automaticamente
-      const pullQuerySchema = z.object({
-        last_pulled_at: z.coerce.number().optional().nullable(),
-      });
+    const pullQuerySchema = z.object({
+      last_pulled_at: z.preprocess(
+        (val) => (val === undefined || val === null || val === '' ? null : Number(val)),
+        z.number().nullable(),
+      ),
+    });
 
       const { last_pulled_at } = pullQuerySchema.parse(request.query);
 
       // 2. Segurança: Identificação do Usuário (Multi-tenant)
-      // Em uma API real, esse ID vem do seu middleware de Autenticação (ex: JWT)
-      // Estamos simulando a extração do token interceptado pelo Fastify
-      const idCliente = (request.user as any)?.id_cliente; 
+      const idCliente = request.user?.id_cliente;
       
       if (!idCliente) {
         return reply.status(401).send({ error: 'Usuário não autenticado.' });

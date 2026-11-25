@@ -25,12 +25,12 @@ export class EventoMedicaoService {
       if (record.deleted_at) {
         // Se tem deleted_at, o app deve deletar localmente
         deleted.push(record.id_evento_medicao);
-      } else if (record.created_at > validTimestamp) {
-        // Se foi criado DEPOIS da última sincronização do celular, é um registro novo para o app
-        created.push(record);
+      } else if (!lastPulledAt && record.created_at > validTimestamp) {
+        // Só envia como 'created' na carga inicial; nas próximas, envia como 'updated'
+        created.push({ ...record, id: record.id_evento_medicao });
       } else {
         // Se foi criado ANTES, mas foi alterado recentemente, é um update
-        updated.push(record);
+        updated.push({ ...record, id: record.id_evento_medicao });
       }
     }
 
@@ -69,7 +69,6 @@ export class EventoMedicaoService {
    * Função privada (cápsula de domínio) para isolar as validações pesadas
    */
   private validarRegrasClinicasEFHIR(record: Prisma.EventoMedicaoUncheckedCreateInput) {
-    // O payload no Prisma vem como um JSON genérico (Prisma.InputJsonValue), precisamos tratá-content
     const fhirPayload = record.fhir_observation_payload as any;
 
     if (!fhirPayload || typeof fhirPayload !== 'object') {
@@ -84,37 +83,58 @@ export class EventoMedicaoService {
       throw new Error(`Status FHIR inválido: ${fhirPayload.status}`);
     }
 
-    // 2. Extração dos códigos e valores baseados na estrutura FHIR
-    // Assumindo a estrutura: observation.code.coding[0].code e observation.valueQuantity
+    // 2. Extração do código LOINC
     const loincCode = fhirPayload.code?.coding?.[0]?.code;
-    const measurementValue = fhirPayload.valueQuantity?.value;
-    const ucumUnit = fhirPayload.valueQuantity?.unit;
 
-    if (typeof measurementValue !== 'number') {
-      throw new Error('O valor da medição (valueQuantity.value) deve ser numérico.');
-    }
-
-    // 3. Validações de Domínio Clínico Cruzadas com LOINC e UCUM
-    
-    // Glicemia (Código LOINC 41653-7)
+    // 3. Validações de Domínio Clínico + Vínculo com o Seed de tipo_medicao
     if (loincCode === '41653-7') {
+      const measurementValue = fhirPayload.valueQuantity?.value;
+      const ucumUnit = fhirPayload.valueQuantity?.unit;
+
+      if (typeof measurementValue !== 'number') {
+        throw new Error('O valor da glicemia (valueQuantity.value) deve ser numérico.');
+      }
       if (ucumUnit !== 'mg/dL') {
         throw new Error("A unidade para Glicemia deve ser 'mg/dL' (padrão UCUM).");
       }
-      // Evita erros de digitação absurdos no app
       if (measurementValue < 10 || measurementValue > 900) {
         throw new Error(`Valor de glicemia clinicamente irreal: ${measurementValue} mg/dL.`);
       }
-    } 
-    // Pressão Arterial (Código LOINC 85354-9 - Sistólica/Diastólica geralmente vem como componentes no FHIR, mas validaremos o valor base)
-    else if (loincCode === '85354-9') {
-      if (ucumUnit !== 'mm[Hg]') {
-        throw new Error("A unidade para Pressão Arterial deve ser 'mm[Hg]' (padrão UCUM).");
+
+      // Garante a FK com o registro '1' (Glicose) do seed
+      record.id_tipo_medicao = '1';
+    } else if (loincCode === '85354-9') {
+      const componentes = Array.isArray(fhirPayload.component) ? fhirPayload.component : [];
+
+      if (componentes.length > 0) {
+        for (const comp of componentes) {
+          const valor = comp.valueQuantity?.value;
+          const unidade = comp.valueQuantity?.unit;
+
+          if (typeof valor !== 'number' || valor <= 0 || valor > 300) {
+            throw new Error(`Valor de pressão arterial clinicamente irreal: ${valor} mmHg.`);
+          }
+          if (unidade !== 'mm[Hg]') {
+            throw new Error("A unidade para Pressão Arterial deve ser 'mm[Hg]' (padrão UCUM).");
+          }
+        }
+      } else {
+        const measurementValue = fhirPayload.valueQuantity?.value;
+        const ucumUnit = fhirPayload.valueQuantity?.unit;
+
+        if (typeof measurementValue !== 'number') {
+          throw new Error('O valor da pressão arterial deve ser numérico.');
+        }
+        if (ucumUnit !== 'mm[Hg]') {
+          throw new Error("A unidade para Pressão Arterial deve ser 'mm[Hg]' (padrão UCUM).");
+        }
+        if (measurementValue <= 0 || measurementValue > 300) {
+          throw new Error(`Valor de pressão arterial clinicamente irreal: ${measurementValue} mmHg.`);
+        }
       }
-      // Validação abrangente para evitar valores negativos ou impossíveis de pressão
-      if (measurementValue <= 0 || measurementValue > 300) {
-         throw new Error(`Valor de pressão arterial clinicamente irreal: ${measurementValue} mmHg.`);
-      }
+
+      // Garante a FK com o registro '2' (Pressão Arterial) do seed
+      record.id_tipo_medicao = '2';
     } else {
       throw new Error(`Código LOINC não suportado ou ausente: ${loincCode}`);
     }

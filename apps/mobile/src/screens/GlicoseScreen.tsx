@@ -6,6 +6,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Alert, Pressable, Text, TextInput, View } from 'react-native';
 import MainScreenLayout from '../components/MainScreenLayout';
 import PerfilReferenciaCard from '../components/PerfilReferenciaCard';
+import AlertaRiscoModal from '../components/AlertaRiscoModal';
 import { localDataStyles as styles } from '../theme/localDataStyles';
 import { colors } from '../theme/colors';
 import { salvarMedicaoGlicose } from '../database/helpers/measurementRepository';
@@ -22,6 +23,24 @@ import {
     lerPerfilReferenciaGlicose,
     lerUsuario,
 } from '../services/storage/localData';
+import { syncData } from '../services/sync';
+
+interface EstadoAvisoRisco {
+    visivel: boolean;
+    valorMedicao: string;
+    motivoRisco: string;
+    sincronizado: boolean;
+}
+
+function avaliarRiscoGlicose(valor: number): { isCritico: boolean; motivo: string } {
+    if (valor < 70) {
+        return { isCritico: true, motivo: 'Hipoglicemia (glicose muito baixa)' };
+    }
+    if (valor >= 250) {
+        return { isCritico: true, motivo: 'Hiperglicemia crítica (glicose muito elevada)' };
+    }
+    return { isCritico: false, motivo: '' };
+}
 
 export default function GlicoseScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -32,6 +51,12 @@ export default function GlicoseScreen() {
     const [idCliente, setIdCliente] = useState('local');
     const [erro, setErro] = useState('');
     const [carregando, setCarregando] = useState(false);
+    const [avisoRisco, setAvisoRisco] = useState<EstadoAvisoRisco>({
+        visivel: false,
+        valorMedicao: '',
+        motivoRisco: '',
+        sincronizado: false,
+    });
 
     useFocusEffect(useCallback(() => {
         let ativo = true;
@@ -63,6 +88,7 @@ export default function GlicoseScreen() {
         contextoSelecionado: ContextoGlicose,
         perfilSelecionado: PerfilReferenciaGlicose,
         resultado: ResultadoReferenciaGlicose,
+        risco: { isCritico: boolean; motivo: string },
     ) {
         setCarregando(true);
         try {
@@ -72,14 +98,35 @@ export default function GlicoseScreen() {
                 contextoSelecionado,
                 perfilSelecionado,
                 resultado,
+                risco.isCritico,
             );
+
+            let sincronizado = false;
+            try {
+                sincronizado = await syncData();
+            } catch (err) {
+                console.log('Sync pendente (glicose):', err);
+            }
+
             setValor('');
             setContexto(null);
-            Alert.alert(
-                'Medição salva',
-                'O registro foi guardado neste aparelho e está aguardando sincronização.',
-                [{ text: 'Ver histórico', onPress: () => navigation.navigate('Historico') }, { text: 'OK' }],
-            );
+
+            if (risco.isCritico) {
+                setAvisoRisco({
+                    visivel: true,
+                    valorMedicao: `${numero} mg/dL`,
+                    motivoRisco: risco.motivo,
+                    sincronizado,
+                });
+            } else {
+                Alert.alert(
+                    'Medição salva',
+                    sincronizado
+                        ? 'O registro foi salvo e sincronizado com a nuvem.'
+                        : 'O registro foi guardado neste aparelho e está aguardando sincronização.',
+                    [{ text: 'Ver histórico', onPress: () => navigation.navigate('Historico') }, { text: 'OK' }],
+                );
+            }
         } catch {
             setErro('Não foi possível salvar a medição no banco local.');
         } finally {
@@ -103,7 +150,25 @@ export default function GlicoseScreen() {
             return;
         }
 
-        void registrar(numero, contexto, perfil, classificarGlicose(numero, perfil, contexto));
+        const classificacao = classificarGlicose(numero, perfil, contexto);
+        const risco = avaliarRiscoGlicose(numero);
+
+        if (risco.isCritico) {
+            Alert.alert(
+                'Atenção: Valor de Risco',
+                `A medição de ${numero} mg/dL indica ${risco.motivo.toLowerCase()}. Tem certeza que digitou o valor corretamente?`,
+                [
+                    { text: 'Não, vou corrigir', style: 'cancel' },
+                    {
+                        text: 'Sim, salvar',
+                        style: 'destructive',
+                        onPress: () => void registrar(numero, contexto, perfil, classificacao, risco),
+                    },
+                ],
+            );
+        } else {
+            void registrar(numero, contexto, perfil, classificacao, risco);
+        }
     }
 
     return (
@@ -191,6 +256,19 @@ export default function GlicoseScreen() {
             >
                 <Text style={styles.textoBotao}>{carregando ? 'Salvando…' : 'Salvar medição'}</Text>
             </Pressable>
+
+            <AlertaRiscoModal
+                visivel={avisoRisco.visivel}
+                tituloMedicao="Glicemia em nível de risco"
+                valorMedicao={avisoRisco.valorMedicao}
+                motivoRisco={avisoRisco.motivoRisco}
+                sincronizado={avisoRisco.sincronizado}
+                onFechar={() => setAvisoRisco((prev) => ({ ...prev, visivel: false }))}
+                onVerHistorico={() => {
+                    setAvisoRisco((prev) => ({ ...prev, visivel: false }));
+                    navigation.navigate('Historico');
+                }}
+            />
         </MainScreenLayout>
     );
 }

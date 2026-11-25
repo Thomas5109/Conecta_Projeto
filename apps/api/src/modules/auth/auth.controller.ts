@@ -10,10 +10,28 @@ export async function loginController(
         const identificador = typeof request.body.cpf === 'string'
             ? { cpf: request.body.cpf }
             : { email: request.body.email };
+
         const usuario = await autenticarUsuario(identificador, request.body.senha);
+
+        if (!usuario.cliente) {
+            return reply.code(403).send({
+                erro: 'Este usuário não possui um perfil de cliente vinculado.',
+            });
+        }
+
+        const token = await reply.jwtSign(
+            { id_cliente: usuario.cliente.idCliente },
+            { expiresIn: '7d' },
+        );
+
         return reply.code(200).send({
-            mensagem: 'Credenciais válidas. A sessão ainda não foi implementada.',
-            usuario,
+            token,
+            usuario: {
+                idUsuario: usuario.idUsuario,
+                idCliente: usuario.cliente.idCliente,
+                nome: usuario.cliente.nome,
+                email: usuario.email,
+            },
         });
     } catch (error) {
         if (error instanceof AuthServiceError) {

@@ -9,6 +9,7 @@ import type {
     ResultadoReferenciaGlicose,
 } from '../../types/glicose.types';
 import { formatarDataHoraCurta } from '../../utils/dateTime';
+import { syncData } from '../../services/sync';
 
 const collection = database.get<Measurement>('measurements');
 
@@ -18,6 +19,7 @@ export async function salvarMedicaoGlicose(
     contexto: ContextoGlicose,
     perfilReferencia: PerfilReferenciaGlicose,
     classificacao: ResultadoReferenciaGlicose,
+    isCritico = false,
 ): Promise<Measurement> {
     const agora = new Date();
     const fhir = construirFhirGlicose({
@@ -35,7 +37,7 @@ export async function salvarMedicaoGlicose(
             registro.tipoMedicaoId = 'glicose';
             registro.dataHora = agora;
             registro.fhirPayload = JSON.stringify(fhir);
-            registro.isCritico = false;
+            registro.isCritico = isCritico;
             registro.statusSincronizacao = 'PENDENTE';
         });
     });
@@ -45,6 +47,7 @@ export async function salvarMedicaoPressao(
     sistolica: number,
     diastolica: number,
     idCliente: string,
+    isCritico = false,
 ): Promise<Measurement> {
     const agora = new Date();
     const fhir = construirFhirPressao({
@@ -60,7 +63,7 @@ export async function salvarMedicaoPressao(
             registro.tipoMedicaoId = 'pressao';
             registro.dataHora = agora;
             registro.fhirPayload = JSON.stringify(fhir);
-            registro.isCritico = false;
+            registro.isCritico = isCritico;
             registro.statusSincronizacao = 'PENDENTE';
         });
     });
@@ -78,7 +81,12 @@ export async function listarTodasMedicoes(): Promise<MedicaoLocal[]> {
         let perfilReferencia: MedicaoLocal['perfilReferencia'] = undefined;
         let classificacao: MedicaoLocal['classificacao'] = undefined;
 
-        if (registro.tipoMedicaoId === 'glicose') {
+        const isGlicose =
+            registro.tipoMedicaoId === 'glicose' ||
+            registro.tipoMedicaoId === '1' ||
+            (fhir as any)?.code?.coding?.[0]?.code === '41653-7';
+
+        if (isGlicose) {
             tipo = 'Glicose';
             const quantidade = (fhir as any)?.valueQuantity;
             valor = quantidade ? String(quantidade.value) + ' mg/dL' : '-- mg/dL';
@@ -126,9 +134,11 @@ export async function listarTodasMedicoes(): Promise<MedicaoLocal[]> {
             : formatarDataHoraCurta(registro.dataHora ?? registro.createdAt ?? new Date());
 
         const dataIso = effectiveDateTime ?? registro.dataHora?.toISOString() ?? '';
-        const statusSincronizacao = registro.statusSincronizacao === 'ENVIADO'
-            ? 'ENVIADO'
-            : 'PENDENTE';
+        const statusSincronizacao =
+            registro.syncStatus === 'synced' || registro.statusSincronizacao === 'ENVIADO'
+                ? 'ENVIADO'
+                : 'PENDENTE';
+
         return { id: registro.id, tipo, valor, data, dataIso, statusSincronizacao, contexto, perfilReferencia, classificacao };
     });
 }
@@ -169,6 +179,9 @@ export async function excluirMedicao(id: string): Promise<void> {
         const registro = await collection.find(id);
         await registro.markAsDeleted();
     });
+
+    // Dispara a sincronização imediatamente em segundo plano (fora do database.write)
+    void syncData().catch((err) => console.log('Sync pendente (exclusão):', err));
 }
 
 export async function listarPendentes(): Promise<Measurement[]> {

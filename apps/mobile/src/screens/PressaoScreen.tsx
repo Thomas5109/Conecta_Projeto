@@ -1,38 +1,70 @@
-import { useNavigation } from '@react-navigation/native';
+import { useCallback, useState } from 'react';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types/navigation.types';
-import { useState } from 'react';
 import { Pressable, Text, TextInput, Alert } from 'react-native';
 import MainScreenLayout from '../components/MainScreenLayout';
 import { localDataStyles as styles } from '../theme/localDataStyles';
 import { colors } from '../theme/colors';
-
-// Importa a nova função do repositório WatermelonDB
+import { lerUsuario } from '../services/storage/localData';
+import { syncData } from '../services/sync';
 import { salvarMedicaoPressao } from '../database/helpers/measurementRepository';
+import AlertaRiscoModal from '../components/AlertaRiscoModal';
 
 export default function PressaoScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const [sistolica, setSistolica] = useState('');
     const [diastolica, setDiastolica] = useState('');
+    const [idCliente, setIdCliente] = useState('local');
     const [erro, setErro] = useState('');
     const [carregando, setCarregando] = useState(false);
 
-    // TODO: Substituir pelo ID real do usuário logado vindo do Contexto de Autenticação
-    const ID_CLIENTE_LOGADO = 'id-mock-do-usuario';
+    const [avisoRisco, setAvisoRisco] = useState({
+        visivel: false,
+        valorMedicao: '',
+        sincronizado: false,
+    });
 
-    async function registrarNoBancoOffline(sys: number, dia: number) {
+    useFocusEffect(useCallback(() => {
+        let ativo = true;
+        void lerUsuario().then((usuario) => {
+            if (ativo && usuario?.idCliente != null) {
+                setIdCliente(String(usuario.idCliente));
+            }
+        });
+        return () => { ativo = false; };
+    }, []));
+
+    async function registrarNoBancoOffline(sys: number, dia: number, isCritico: boolean) {
         setCarregando(true);
         try {
-            // Salva no WatermelonDB, gera UUID, Payload FHIR e status 'PENDENTE'
-            await salvarMedicaoPressao(sys, dia, ID_CLIENTE_LOGADO);
-            
+            await salvarMedicaoPressao(sys, dia, idCliente, isCritico);
+
+            let sincronizado = false;
+            try {
+                sincronizado = await syncData();
+            } catch (err) {
+                console.log('Sync pendente (pressão):', err);
+            }
+
             setSistolica('');
             setDiastolica('');
-            Alert.alert(
-                'Medição salva',
-                'O registro foi guardado neste aparelho e está aguardando sincronização.',
-                [{ text: 'Ver histórico', onPress: () => navigation.navigate('Historico') }, { text: 'OK' }],
-            );
+
+            if (isCritico) {
+                setAvisoRisco({
+                    visivel: true,
+                    valorMedicao: `${sys}/${dia} mmHg`,
+                    sincronizado,
+                });
+            } else {
+                Alert.alert(
+                    'Medição salva',
+                    sincronizado
+                        ? 'O registro foi salvo e sincronizado com a nuvem.'
+                        : 'O registro foi guardado neste aparelho e está aguardando sincronização.',
+                    [{ text: 'Ver histórico', onPress: () => navigation.navigate('Historico') }, { text: 'OK' }],
+                );
+            }
         } catch {
             setErro('Não foi possível salvar a medição no banco local.');
         } finally {
@@ -58,18 +90,16 @@ export default function PressaoScreen() {
         const isCritico = sistolicaNumero >= 180 || diastolicaNumero >= 120;
 
         if (isCritico) {
-            // Tela de Double Check (Confirmação)
             Alert.alert(
                 "Atenção: Crise Hipertensiva",
                 `A medição de ${sistolicaNumero}/${diastolicaNumero} mmHg apresenta alto risco. Tem certeza que digitou corretamente?`,
                 [
                     { text: "Não, vou corrigir", style: "cancel" },
-                    { text: "Sim, salvar", style: "destructive", onPress: () => registrarNoBancoOffline(sistolicaNumero, diastolicaNumero) }
+                    { text: "Sim, salvar", style: "destructive", onPress: () => registrarNoBancoOffline(sistolicaNumero, diastolicaNumero, true) }
                 ]
             );
         } else {
-            // Valor normal ou alteração leve, salva direto
-            registrarNoBancoOffline(sistolicaNumero, diastolicaNumero);
+            registrarNoBancoOffline(sistolicaNumero, diastolicaNumero, false);
         }
     }
 
@@ -109,6 +139,19 @@ export default function PressaoScreen() {
             >
                 <Text style={styles.textoBotao}>{carregando ? 'Salvando…' : 'Salvar medição'}</Text>
             </Pressable>
+
+            <AlertaRiscoModal
+                visivel={avisoRisco.visivel}
+                tituloMedicao="Pressão arterial em nível crítico"
+                valorMedicao={avisoRisco.valorMedicao}
+                motivoRisco="Crise hipertensiva (pressão muito elevada)"
+                sincronizado={avisoRisco.sincronizado}
+                onFechar={() => setAvisoRisco((prev) => ({ ...prev, visivel: false }))}
+                onVerHistorico={() => {
+                    setAvisoRisco((prev) => ({ ...prev, visivel: false }));
+                    navigation.navigate('Historico');
+                }}
+            />
         </MainScreenLayout>
     );
 }

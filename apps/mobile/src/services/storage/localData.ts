@@ -19,6 +19,7 @@ export const CHAVES_DADOS_LOCAIS = {
     lembretes: '@alertasaude_alarmes',
     contatos: '@alertasaude_contatos',
     usuario: '@alertasaude_usuario',
+    token: '@alertasaude_token',
 } as const;
 
 async function ler<T>(chave: string, valorPadrao: T): Promise<T> {
@@ -131,4 +132,16 @@ export function salvarUsuario(usuario: UsuarioLocal): Promise<void> {
 
 export function removerUsuario(): Promise<void> {
     return AsyncStorage.removeItem(CHAVES_DADOS_LOCAIS.usuario);
+}
+
+export function lerToken(): Promise<string | null> {
+    return ler<string | null>(CHAVES_DADOS_LOCAIS.token, null);
+}
+
+export function salvarToken(token: string): Promise<void> {
+    return gravar(CHAVES_DADOS_LOCAIS.token, token);
+}
+
+export function removerToken(): Promise<void> {
+    return AsyncStorage.removeItem(CHAVES_DADOS_LOCAIS.token);
 }

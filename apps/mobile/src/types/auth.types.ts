@@ -1,12 +1,6 @@
+import type { UsuarioLocal } from './localData.types';
+
 export interface LoginResponse {
-    mensagem: string;
-    usuario: {
-        idUsuario: string | number;
-        email: string;
-        tipoUsuario: string;
-        cliente: {
-            idCliente: string | number;
-            nome: string | null;
-        } | null;
-    };
+    token: string;
+    usuario: UsuarioLocal;
 }

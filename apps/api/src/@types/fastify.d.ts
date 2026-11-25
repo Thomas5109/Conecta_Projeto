@@ -1,13 +1,8 @@
-import 'fastify';
+import '@fastify/jwt';
 
-// Sobrescreve e expande a tipagem original do Fastify
-declare module 'fastify' {
-  interface FastifyRequest {
-    user?: {
-      id_cliente: string;
-      // Você pode adicionar outros campos que seu token JWT guarda aqui, ex:
-      email: string;
-      // role: string;
-    };
+declare module '@fastify/jwt' {
+  interface FastifyJWT {
+    payload: { id_cliente: string };
+    user: { id_cliente: string };
   }
 }
