@@ -1,7 +1,7 @@
 import { Alert } from 'react-native';
 import { synchronize } from '@nozbe/watermelondb/sync';
 import database from '../database/database';
-import { lerToken, removerToken } from './storage/localData';
+import { lerToken, removerToken } from './storage/tokenStorage';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://192.168.100.6:3000';
 

@@ -6,14 +6,16 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-
     "expo": {
-      "platforms": ["ios", "android", "web"],
+      "platforms": [
+        "ios",
+        "android",
+        "web"
+      ],
       "web": {
         "bundler": "metro"
-      },
+      }
     },
-
     "ios": {
       "supportsTablet": true
     },
@@ -38,7 +40,8 @@
           "disableJsi": true
         }
       ],
-      "./withWatermelonBuildConfig.js"
+      "./withWatermelonBuildConfig.js",
+      "expo-status-bar"
     ],
     "extra": {
       "eas": {
