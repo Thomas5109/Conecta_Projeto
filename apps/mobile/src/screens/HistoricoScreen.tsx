@@ -208,7 +208,7 @@ export default function HistoricoScreen() {
                         {medicao.classificacao && <Text style={[styles.texto, acimaMeta && styles.tituloMetaAlta]}>{medicao.classificacao.rotulo} · {medicao.classificacao.faixa}</Text>}
                         <Text style={styles.texto}>{medicao.data}</Text>
                         <Text style={[styles.texto, { color: medicao.statusSincronizacao === 'ENVIADO' ? '#287A45' : colors.textSecondary }]}>
-                            {medicao.statusSincronizacao === 'ENVIADO' ? '✓ Sincronizada com o servidor' : '● Salva neste aparelho · aguardando sincronização'}
+                            {medicao.statusSincronizacao === 'ENVIADO' ? '✓ Sincronizado' : '● Aguardando sincronização'}
                         </Text>
                         <View style={styles.linha}>
                             <Pressable style={[styles.botaoSecundario, { flex: 1 }]} onPress={() => void abrirEdicao(medicao)} accessibilityRole="button"><Text style={styles.textoBotaoSecundario}>Editar</Text></Pressable>

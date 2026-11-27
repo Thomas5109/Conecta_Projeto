@@ -4,7 +4,7 @@ import AppNavigator from './src/routes/AppNavigator';
 import { useAutoSync } from './src/hooks/useAutoSync';
 
 export default function App() {
-    //useAutoSync();
+    useAutoSync();
 
     return (
         <SafeAreaProvider>
