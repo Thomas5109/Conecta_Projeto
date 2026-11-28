@@ -1,9 +1,9 @@
 import { Alert } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
 import { synchronize } from '@nozbe/watermelondb/sync';
 import database from '../database/database';
 import { lerToken, removerToken } from './storage/tokenStorage';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://192.168.100.6:3000';
+import { fetchComTimeout } from './api/apiTimeout';
 
 let syncEmAndamento: Promise<boolean> | null = null;
 
@@ -91,6 +91,13 @@ export function syncData(): Promise<boolean> {
   }
 
   syncEmAndamento = (async () => {
+    const netState = await NetInfo.fetch();
+    const online = Boolean(netState.isConnected && netState.isInternetReachable !== false);
+
+    if (!online) {
+      return false;
+    }
+
     const token = await lerToken();
 
     if (!token) {
@@ -105,12 +112,13 @@ export function syncData(): Promise<boolean> {
       pullChanges: async ({ lastPulledAt }) => {
         const urlParams = lastPulledAt ? `?last_pulled_at=${lastPulledAt}` : '';
 
-        const response = await fetch(`${API_URL}/sync${urlParams}`, {
+        const response = await fetchComTimeout(`/sync${urlParams}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
+          timeoutMs: 4000,
         });
 
         if (!response.ok) {
@@ -159,13 +167,14 @@ export function syncData(): Promise<boolean> {
           },
         };
 
-        const response = await fetch(`${API_URL}/sync`, {
+        const response = await fetchComTimeout('/sync', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(payloadBackend),
+          timeoutMs: 4000,
         });
 
         if (!response.ok) {

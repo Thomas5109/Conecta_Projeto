@@ -36,17 +36,25 @@ export default function PressaoScreen() {
     }, []));
 
     async function registrarNoBancoOffline(sys: number, dia: number, isCritico: boolean) {
+        if (carregando) return;
         setCarregando(true);
+
         try {
+            // 1. Aguarda apenas a gravação no WatermelonDB (poucos ms)
             await salvarMedicaoPressao(sys, dia, idCliente, isCritico);
 
-            let sincronizado = false;
-            try {
-                sincronizado = await syncData();
-            } catch (err) {
-                console.log('Sync pendente (pressão):', err);
-            }
+            // 2. Dispara a sincronização em segundo plano sem travar a interface
+            void syncData()
+                .then((ok) => {
+                    if (ok && isCritico) {
+                        setAvisoRisco((prev) => (prev.visivel ? { ...prev, sincronizado: true } : prev));
+                    }
+                })
+                .catch((err) => {
+                    console.log('Sync pendente (pressão):', err);
+                });
 
+            // 3. Limpa o formulário e exibe o feedback imediatamente
             setSistolica('');
             setDiastolica('');
 
@@ -54,14 +62,12 @@ export default function PressaoScreen() {
                 setAvisoRisco({
                     visivel: true,
                     valorMedicao: `${sys}/${dia} mmHg`,
-                    sincronizado,
+                    sincronizado: false,
                 });
             } else {
                 Alert.alert(
                     'Medição salva',
-                    sincronizado
-                        ? 'O registro foi salvo e sincronizado com a nuvem.'
-                        : 'O registro foi guardado neste aparelho e está aguardando sincronização.',
+                    'O registro foi guardado neste aparelho e será sincronizado automaticamente.',
                     [{ text: 'Ver histórico', onPress: () => navigation.navigate('Historico') }, { text: 'OK' }],
                 );
             }
@@ -73,6 +79,7 @@ export default function PressaoScreen() {
     }
 
     function processarMedicao() {
+        if (carregando) return;
         setErro('');
         let sistolicaNumero = Number(sistolica);
         let diastolicaNumero = Number(diastolica);
@@ -95,11 +102,11 @@ export default function PressaoScreen() {
                 `A medição de ${sistolicaNumero}/${diastolicaNumero} mmHg apresenta alto risco. Tem certeza que digitou corretamente?`,
                 [
                     { text: "Não, vou corrigir", style: "cancel" },
-                    { text: "Sim, salvar", style: "destructive", onPress: () => registrarNoBancoOffline(sistolicaNumero, diastolicaNumero, true) }
+                    { text: "Sim, salvar", style: "destructive", onPress: () => void registrarNoBancoOffline(sistolicaNumero, diastolicaNumero, true) }
                 ]
             );
         } else {
-            registrarNoBancoOffline(sistolicaNumero, diastolicaNumero, false);
+            void registrarNoBancoOffline(sistolicaNumero, diastolicaNumero, false);
         }
     }
 

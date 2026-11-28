@@ -90,8 +90,11 @@ export default function GlicoseScreen() {
         resultado: ResultadoReferenciaGlicose,
         risco: { isCritico: boolean; motivo: string },
     ) {
+        if (carregando) return;
         setCarregando(true);
+
         try {
+            // 1. Aguarda apenas a gravação no WatermelonDB (poucos ms)
             await salvarMedicaoGlicose(
                 numero,
                 idCliente,
@@ -101,13 +104,18 @@ export default function GlicoseScreen() {
                 risco.isCritico,
             );
 
-            let sincronizado = false;
-            try {
-                sincronizado = await syncData();
-            } catch (err) {
-                console.log('Sync pendente (glicose):', err);
-            }
+            // 2. Dispara a sincronização em segundo plano sem travar a interface
+            void syncData()
+                .then((ok) => {
+                    if (ok && risco.isCritico) {
+                        setAvisoRisco((prev) => (prev.visivel ? { ...prev, sincronizado: true } : prev));
+                    }
+                })
+                .catch((err) => {
+                    console.log('Sync pendente (glicose):', err);
+                });
 
+            // 3. Limpa o formulário e exibe o feedback imediatamente
             setValor('');
             setContexto(null);
 
@@ -116,14 +124,12 @@ export default function GlicoseScreen() {
                     visivel: true,
                     valorMedicao: `${numero} mg/dL`,
                     motivoRisco: risco.motivo,
-                    sincronizado,
+                    sincronizado: false,
                 });
             } else {
                 Alert.alert(
                     'Medição salva',
-                    sincronizado
-                        ? 'O registro foi salvo e sincronizado com a nuvem.'
-                        : 'O registro foi guardado neste aparelho e está aguardando sincronização.',
+                    'O registro foi guardado neste aparelho e será sincronizado automaticamente.',
                     [{ text: 'Ver histórico', onPress: () => navigation.navigate('Historico') }, { text: 'OK' }],
                 );
             }
@@ -135,6 +141,7 @@ export default function GlicoseScreen() {
     }
 
     function processarMedicao() {
+        if (carregando) return;
         setErro('');
         const numero = Number(valor.replace(',', '.'));
         if (!valor.trim() || !Number.isFinite(numero) || numero <= 0) {
