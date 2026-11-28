@@ -13,9 +13,10 @@
   "scripts": {
     "install:all": "npm ci",
     "dev:api": "npm --workspace apps/api run dev",
+    "dev:mobile": "cd apps/mobile && npx expo start -c",
     "build:api": "npm --workspace apps/api run build",
+    "build:mobile": "cd apps/mobile && npx eas-cli build --profile development --platform android",
     "start:api": "npm --workspace apps/api run start",
-    "dev:mobile": "npm --workspace apps/mobile run start",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f postgres",
@@ -40,7 +41,6 @@
     "@types/react": "~19.3.0"
   },
   "dependencies": {
-    "dotenv": "^18.0.9",
-    "libphonenumber-js": "^1.13.15"
+    "dotenv": "^18.0.9"
   }
 }

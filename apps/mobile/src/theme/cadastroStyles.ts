@@ -6,7 +6,7 @@ import { typography } from './typography';
 export const cadastroStyles = StyleSheet.create({
     container: {
         flexGrow: 1,
-        justifyContent: 'center',
+        justifyContent: 'flex-start',
         paddingHorizontal: spacing.xxl,
         paddingVertical: spacing.screenVertical,
         backgroundColor: colors.background,
@@ -28,6 +28,11 @@ export const cadastroStyles = StyleSheet.create({
         color: colors.text,
         marginBottom: spacing.sm,
         marginTop: spacing.lg,
+    },
+    textoObrigatorio: {
+        color: colors.required,
+        fontSize: 13,
+        fontWeight: '600',
     },
     input: {
         minHeight: 58,
@@ -113,4 +118,3 @@ export const cadastroStyles = StyleSheet.create({
         color: colors.white,
     },
 });
-

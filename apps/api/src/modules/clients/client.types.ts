@@ -11,8 +11,8 @@ export interface CreateClientBody {
 
 // Formato dos dados que o PostgreSQL retorna ao criar um cliente.
 export interface ClientRow {
-    id_cliente: number;
-    id_usuario: number;
+    id_cliente: string;
+    id_usuario: string;
     nome: string;
     telefone: string;
     data_de_nascimento: string;

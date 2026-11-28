@@ -4,6 +4,9 @@
     "target": "esnext",
     "module": "commonjs",
     "types": ["node"],
-    "strict": true
+    "strict": true,
+    "strictPropertyInitialization": false,
+    "useDefineForClassFields": false,
+    "experimentalDecorators": true
   }
 }

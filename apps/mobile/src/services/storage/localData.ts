@@ -1,10 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+    listarTodasMedicoes,
+    salvarMedicaoGlicose,
+    salvarMedicaoPressao,
+} from '../../database/helpers/measurementRepository';
 import type {
     ContatoLocal,
     LembreteLocal,
     MedicaoLocal,
     UsuarioLocal,
 } from '../../types/localData.types';
+import type { PerfilReferenciaGlicose } from '../../types/glicose.types';
+import { classificarGlicose, isPerfilReferenciaGlicose } from '../../utils/glicoseReference';
 import { normalizarHorario } from '../../utils/dateTime';
 
 export const CHAVES_DADOS_LOCAIS = {
@@ -12,7 +19,10 @@ export const CHAVES_DADOS_LOCAIS = {
     lembretes: '@alertasaude_alarmes',
     contatos: '@alertasaude_contatos',
     usuario: '@alertasaude_usuario',
+    token: '@alertasaude_token',
 } as const;
+
+export { lerToken, removerToken, salvarToken } from '../storage/tokenStorage';
 
 async function ler<T>(chave: string, valorPadrao: T): Promise<T> {
     try {
@@ -27,29 +37,72 @@ async function gravar<T>(chave: string, valor: T): Promise<void> {
     await AsyncStorage.setItem(chave, JSON.stringify(valor));
 }
 
-export async function listarMedicoes(): Promise<MedicaoLocal[]> {
-    const registros = await ler<Array<Partial<MedicaoLocal>>>(
-        CHAVES_DADOS_LOCAIS.historico,
-        []
-    );
+async function chavePerfilGlicose(): Promise<string> {
+    const usuario = await lerUsuario();
+    return '@conecta_perfil_referencia_glicose:' +
+        String(usuario?.idUsuario ?? 'local');
+}
 
-    return registros.map((registro, indice) => ({
-        id: registro.id ?? `historico-${indice}`,
-        tipo: registro.tipo === 'Pressão' ? 'Pressão' : 'Glicose',
-        valor: registro.valor ?? '',
-        data: registro.data ?? '',
-    }));
+export async function lerPerfilReferenciaGlicose(): Promise<PerfilReferenciaGlicose | null> {
+    const valor = await ler<unknown>(await chavePerfilGlicose(), null);
+    return isPerfilReferenciaGlicose(valor) ? valor : null;
+}
+
+export async function salvarPerfilReferenciaGlicose(
+    perfil: PerfilReferenciaGlicose,
+): Promise<void> {
+    if (!isPerfilReferenciaGlicose(perfil)) {
+        throw new Error('Perfil de referência inválido.');
+    }
+
+    const chave = await chavePerfilGlicose();
+    await gravar(chave, perfil);
+}
+
+export async function listarMedicoes(): Promise<MedicaoLocal[]> {
+    return listarTodasMedicoes();
 }
 
 export async function adicionarMedicao(medicao: MedicaoLocal): Promise<void> {
-    const registros = await listarMedicoes();
-    await gravar(CHAVES_DADOS_LOCAIS.historico, [medicao, ...registros]);
+    const usuario = await lerUsuario();
+    const idCliente = usuario?.idCliente == null ? 'local' : String(usuario.idCliente);
+
+    if (medicao.tipo === 'Glicose') {
+        if (!medicao.contexto || !medicao.perfilReferencia) {
+            throw new Error('Selecione o perfil e o contexto da medição de glicose.');
+        }
+        const valor = Number(medicao.valor.replace(',', '.').match(/-?\d+(?:\.\d+)?/)?.[0]);
+        if (!Number.isFinite(valor) || valor <= 0) {
+            throw new Error('Valor de glicose inválido.');
+        }
+        const classificacao = classificarGlicose(
+            valor,
+            medicao.perfilReferencia,
+            medicao.contexto,
+        );
+        await salvarMedicaoGlicose(
+            valor,
+            idCliente,
+            medicao.contexto,
+            medicao.perfilReferencia,
+            classificacao,
+        );
+        return;
+    }
+
+    const valores = medicao.valor.match(/-?\d+(?:[.,]\d+)?/g) ?? [];
+    const sistolica = Number(valores[0]?.replace(',', '.'));
+    const diastolica = Number(valores[1]?.replace(',', '.'));
+    if (!Number.isFinite(sistolica) || !Number.isFinite(diastolica) || sistolica <= 0 || diastolica <= 0) {
+        throw new Error('Valores de pressão inválidos.');
+    }
+    await salvarMedicaoPressao(sistolica, diastolica, idCliente);
 }
 
 export async function listarLembretes(): Promise<LembreteLocal[]> {
     const registros = await ler<Array<Partial<LembreteLocal>>>(
         CHAVES_DADOS_LOCAIS.lembretes,
-        []
+        [],
     );
 
     return registros.map((registro, indice) => ({
@@ -82,4 +135,3 @@ export function salvarUsuario(usuario: UsuarioLocal): Promise<void> {
 export function removerUsuario(): Promise<void> {
     return AsyncStorage.removeItem(CHAVES_DADOS_LOCAIS.usuario);
 }
-

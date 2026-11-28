@@ -13,8 +13,8 @@ export interface CreateClientData {
 export interface CreateClientResponse {
     mensagem: string;
     cliente: {
-        id_cliente: number;
-        id_usuario: number;
+        id_cliente: string | number;
+        id_usuario: string | number;
         nome: string;
         telefone: string;
         data_de_nascimento: string;

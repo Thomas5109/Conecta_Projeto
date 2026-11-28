@@ -31,6 +31,7 @@ interface CampoDataHoraProps {
     accessibilityLabel: string;
     maximumDate?: Date;
     disabled?: boolean;
+    onBlur?: () => void;
 }
 
 function obterDataInicial(mode: ModoCampo, value: string): Date {
@@ -54,6 +55,7 @@ export default function CampoDataHora({
     accessibilityLabel,
     maximumDate,
     disabled = false,
+    onBlur,
 }: CampoDataHoraProps) {
     const [aberto, setAberto] = useState(false);
     const [rascunho, setRascunho] = useState(() => obterDataInicial(mode, value));
@@ -103,6 +105,7 @@ export default function CampoDataHora({
                     accessibilityHint={mode === 'date'
                         ? 'Digite no formato dia, mês e ano'
                         : 'Digite no formato de 24 horas'}
+                    onBlur={onBlur}
                 />
                 {podeAbrirSeletor && (
                     <Pressable

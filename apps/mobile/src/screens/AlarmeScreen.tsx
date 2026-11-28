@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, Text, TextInput, View } from 'react-native';
+import { Alert, Keyboard, Modal, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import MainScreenLayout from '../components/MainScreenLayout';
-import CampoDataHora from '../components/CampoDataHora';
-import { normalizarHorario } from '../utils/dateTime';
+import { formatarHorario, horarioParaDate, normalizarHorario } from '../utils/dateTime';
 import { listarLembretes, salvarLembretes } from '../services/storage/localData';
 import { localDataStyles as styles } from '../theme/localDataStyles';
 import { colors } from '../theme/colors';
@@ -10,9 +10,46 @@ import type { LembreteLocal } from '../types/localData.types';
 
 export default function AlarmeScreen() {
     const [titulo, setTitulo] = useState('');
-    const [horario, setHorario] = useState('');
+    const [hora, setHora] = useState('');
+    const [minutos, setMinutos] = useState('');
     const [lembretes, setLembretes] = useState<LembreteLocal[]>([]);
     const [erro, setErro] = useState('');
+    const [mensagem, setMensagem] = useState('');
+    const [salvando, setSalvando] = useState(false);
+    const [relogioAberto, setRelogioAberto] = useState(false);
+    const [horarioRelogio, setHorarioRelogio] = useState(new Date());
+    let campoMinutos: { focus: () => void } | null = null;
+
+    function normalizarCampo(valor: string, limite: number): string | null {
+        const digitos = valor.replace(/\D/g, '').slice(0, 2);
+        if (!digitos) return null;
+        const numero = Number(digitos);
+        return numero <= limite ? String(numero).padStart(2, '0') : null;
+    }
+
+    function abrirRelogio() {
+        const horarioAtual = hora && minutos ? horarioParaDate(`${hora}:${minutos}`) : null;
+        setHorarioRelogio(horarioAtual ?? new Date());
+        setRelogioAberto(true);
+    }
+
+    function aplicarHorarioRelogio(data: Date) {
+        const horarioFormatado = formatarHorario(data);
+        const [horaFormatada, minutosFormatados] = horarioFormatado.split(':');
+        setHora(horaFormatada);
+        setMinutos(minutosFormatados);
+        setErro('');
+        setRelogioAberto(false);
+    }
+
+    function alterarRelogio(_: unknown, dataSelecionada?: Date) {
+        if (!dataSelecionada) {
+            if (Platform.OS === 'android') setRelogioAberto(false);
+            return;
+        }
+        setHorarioRelogio(dataSelecionada);
+        if (Platform.OS === 'android') aplicarHorarioRelogio(dataSelecionada);
+    }
 
     useEffect(() => {
         let ativo = true;
@@ -29,10 +66,17 @@ export default function AlarmeScreen() {
     }, []);
 
     async function adicionar() {
+        if (salvando) return;
+        Keyboard.dismiss();
         setErro('');
-        const horarioNormalizado = normalizarHorario(horario);
+        setMensagem('');
+        const horaNormalizada = normalizarCampo(hora, 23);
+        const minutosNormalizados = normalizarCampo(minutos, 59);
+        const horarioNormalizado = horaNormalizada && minutosNormalizados
+            ? normalizarHorario(`${horaNormalizada}:${minutosNormalizados}`)
+            : null;
         if (!titulo.trim() || !horarioNormalizado) {
-            setErro('Informe uma descrição e um horário válido no formato HH:MM.');
+            setErro('Informe uma descrição e uma hora válida: horas de 00 a 23 e minutos de 00 a 59.');
             return;
         }
 
@@ -45,13 +89,18 @@ export default function AlarmeScreen() {
             },
         ];
 
+        setSalvando(true);
         try {
             await salvarLembretes(atualizados);
             setLembretes(atualizados);
             setTitulo('');
-            setHorario('');
+            setHora('');
+            setMinutos('');
+            setMensagem('Lembrete salvo neste aparelho.');
         } catch {
             setErro('Não foi possível salvar o lembrete.');
+        } finally {
+            setSalvando(false);
         }
     }
 
@@ -79,17 +128,92 @@ export default function AlarmeScreen() {
                 onChangeText={setTitulo}
             />
             <Text style={styles.rotulo}>Horário (24 horas)</Text>
-            <CampoDataHora
-                mode="time"
-                value={horario}
-                onChangeText={setHorario}
-                inputStyle={styles.entrada}
-                placeholder="HH:MM"
-                accessibilityLabel="Horário do lembrete"
-            />
+            <View style={[styles.linha, { justifyContent: 'flex-start', alignItems: 'flex-end', gap: 8 }]}>
+                <View style={{ flex: 1 }}>
+                    <Text style={styles.telefoneSubLabel}>Hora</Text>
+                    <TextInput
+                        style={[styles.entrada, { fontSize: 22, textAlign: 'center', letterSpacing: 2 }]}
+                        value={hora}
+                        onChangeText={(valor) => setHora(valor.replace(/\D/g, '').slice(0, 2))}
+                        onBlur={() => { const valor = normalizarCampo(hora, 23); if (valor) setHora(valor); }}
+                        keyboardType="number-pad"
+                        maxLength={2}
+                        placeholder="HH"
+                        placeholderTextColor={colors.placeholder}
+                        returnKeyType="next"
+                        blurOnSubmit={false}
+                        onSubmitEditing={() => campoMinutos?.focus()}
+                        accessibilityLabel="Hora do lembrete, de 00 a 23"
+                    />
+                </View>
+                <View style={{ flex: 1 }}>
+                    <Text style={styles.telefoneSubLabel}>Minutos</Text>
+                    <TextInput
+                        ref={(campo) => { campoMinutos = campo; }}
+                        style={[styles.entrada, { fontSize: 22, textAlign: 'center', letterSpacing: 2 }]}
+                        value={minutos}
+                        onChangeText={(valor) => setMinutos(valor.replace(/\D/g, '').slice(0, 2))}
+                        onBlur={() => { const valor = normalizarCampo(minutos, 59); if (valor) setMinutos(valor); }}
+                        keyboardType="number-pad"
+                        maxLength={2}
+                        placeholder="MM"
+                        placeholderTextColor={colors.placeholder}
+                        returnKeyType="done"
+                        onSubmitEditing={() => Keyboard.dismiss()}
+                        accessibilityLabel="Minutos do lembrete, de 00 a 59"
+                    />
+                </View>
+                <Pressable
+                    style={[styles.botaoSecundario, { width: 52, height: 54, minHeight: 54, marginTop: 0, paddingHorizontal: 0, alignItems: 'center', justifyContent: 'center' }]}
+                    onPress={abrirRelogio}
+                    accessibilityRole="button"
+                    accessibilityLabel="Escolher horário usando o relógio"
+                >
+                    <Text style={{ fontSize: 23 }}>🕒</Text>
+                </Pressable>
+            </View>
+            {relogioAberto && Platform.OS === 'android' && (
+                <DateTimePicker
+                    mode="time"
+                    value={horarioRelogio}
+                    display="clock"
+                    is24Hour
+                    onValueChange={alterarRelogio}
+                    onDismiss={() => setRelogioAberto(false)}
+                />
+            )}
+            <Modal
+                visible={relogioAberto && Platform.OS === 'ios'}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setRelogioAberto(false)}
+            >
+                <View style={{ flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#0008' }}>
+                    <View style={{ borderRadius: 16, padding: 18, backgroundColor: colors.surface }}>
+                        <Text style={styles.tituloCartao}>Escolha o horário</Text>
+                        <DateTimePicker
+                            mode="time"
+                            value={horarioRelogio}
+                            display="spinner"
+                            locale="pt_BR"
+                            is24Hour
+                            onValueChange={alterarRelogio}
+                        />
+                        <View style={styles.linha}>
+                            <Pressable style={styles.botaoSecundario} onPress={() => setRelogioAberto(false)} accessibilityRole="button">
+                                <Text style={styles.textoBotaoSecundario}>Cancelar</Text>
+                            </Pressable>
+                            <Pressable style={styles.botao} onPress={() => aplicarHorarioRelogio(horarioRelogio)} accessibilityRole="button">
+                                <Text style={styles.textoBotao}>Usar horário</Text>
+                            </Pressable>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
             {erro !== '' && <Text style={styles.erro} accessibilityRole="alert">{erro}</Text>}
-            <Pressable style={styles.botao} onPress={adicionar} accessibilityRole="button">
-                <Text style={styles.textoBotao}>Salvar lembrete</Text>
+            {mensagem !== '' && <Text style={styles.texto}>{mensagem}</Text>}
+            <Pressable style={[styles.botao, salvando && { opacity: 0.7 }]} onPress={() => void adicionar()} disabled={salvando} accessibilityRole="button">
+                <Text style={styles.textoBotao}>{salvando ? 'Salvando…' : 'Salvar lembrete'}</Text>
             </Pressable>
 
             <Text style={styles.tituloSecao}>Seus lembretes</Text>
